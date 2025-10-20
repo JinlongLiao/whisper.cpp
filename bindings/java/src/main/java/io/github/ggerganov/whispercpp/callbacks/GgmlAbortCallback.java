@@ -7,6 +7,7 @@ import com.sun.jna.Callback;
  * Maps to the C typedef: bool (*ggml_abort_callback)(void * data)
  */
 public interface GgmlAbortCallback extends Callback {
+
     /**
      * Return true to abort the computation, false to continue
      *

@@ -11,7 +11,7 @@ javadoc.options.encoding = 'UTF-8'
 
 archivesBaseName = 'whispercpp'
 group = 'io.github.ggerganov'
-version = '1.8.2.SNAPSHOT'
+version = '1.8.2-SNAPSHOT'
 
 
 sourceCompatibility = 1.8
@@ -99,6 +99,7 @@ processResources.dependsOn copyLibs
 
 dependencies {
     implementation "net.java.dev.jna:jna:5.18.1"
+    compileOnly 'org.slf4j:slf4j-api:1.7.36'
     testImplementation "org.junit.jupiter:junit-jupiter:5.9.2"
     testImplementation "org.assertj:assertj-core:3.24.2"
 }
@@ -153,8 +154,8 @@ publishing {
         maven {
             url = 'https://packages.aliyun.com/maven/repository/2193731-snapshot-iIPWHj/'
             credentials {
-                username = System.getenv("MAVEN_USERNAME")
-                password = System.getenv("MAVEN_PASSWORD")
+                username = '5ed8fe51893c20c8bfcebc06'
+                password = 'dw6=]BZMap(Z'
             }
         }
     }
