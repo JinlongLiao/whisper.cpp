@@ -2,12 +2,12 @@ plugins {
     id 'java'
     id 'java-library'
     id 'maven-publish'
-    id 'signing'
+//    id 'signing'
 }
 
 archivesBaseName = 'whispercpp'
 group = 'io.github.ggerganov'
-version = '1.4.0'
+version = '1.8.2.SNAPSHOT'
 
 
 sourceCompatibility = 1.8
@@ -94,7 +94,7 @@ test.dependsOn copyLibs
 processResources.dependsOn copyLibs
 
 dependencies {
-    implementation "net.java.dev.jna:jna:5.13.0"
+    implementation "net.java.dev.jna:jna:5.18.1"
     testImplementation "org.junit.jupiter:junit-jupiter:5.9.2"
     testImplementation "org.assertj:assertj-core:3.24.2"
 }
@@ -140,20 +140,25 @@ publishing {
 
     repositories {
         maven {
-            def releasesRepoUrl = 'https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/'
-            def snapshotsRepoUrl = 'https://s01.oss.sonatype.org/content/repositories/snapshots/'
-            url = version.endsWith('-SNAPSHOT') ? snapshotsRepoUrl : releasesRepoUrl
+            url = 'https://packages.aliyun.com/maven/repository/2193731-release-KdvW02/'
             credentials {
-                username = System.getenv("MAVEN_USERNAME")
-                password = System.getenv("MAVEN_PASSWORD")
+                username = '5ed8fe51893c20c8bfcebc06'
+                password = 'dw6=]BZMap(Z'
+            }
+        }
+        maven {
+            url = 'https://packages.aliyun.com/maven/repository/2193731-snapshot-iIPWHj/'
+            credentials {
+                username = '5ed8fe51893c20c8bfcebc06'
+                password = 'dw6=]BZMap(Z'
             }
         }
     }
 }
-
-signing {
-    def signingKey = System.getenv("PGP_SECRET")
-    def signingPassword = System.getenv("PGP_PASSPHRASE")
-    useInMemoryPgpKeys(signingKey, signingPassword)
-    sign publishing.publications.mavenJava
-}
+//
+//signing {
+//    def signingKey = System.getenv("PGP_SECRET")
+//    def signingPassword = System.getenv("PGP_PASSPHRASE")
+//    useInMemoryPgpKeys(signingKey, signingPassword)
+//    sign publishing.publications.mavenJava
+//}

@@ -17,7 +17,7 @@ import java.util.List;
  * Before calling most methods, you must call `initContext(modelPath)` to initialise the `ctx` Pointer.
  */
 public class WhisperCpp implements AutoCloseable {
-    private WhisperCppJnaLibrary lib = WhisperCppJnaLibrary.instance;
+    private final WhisperCppJnaLibrary lib = WhisperCppJnaLibrary.instance;
     private Pointer ctx = null;
     private Pointer paramsPointer = null;
     private Pointer greedyParamsPointer = null;
@@ -41,7 +41,7 @@ public class WhisperCpp implements AutoCloseable {
 
     /**
      * @param modelPath - absolute path, or just the name (eg: "base", "base-en" or "base.en")
-     * @param params - params to use when initialising the context
+     * @param params    - params to use when initialising the context
      */
     public void initContext(String modelPath, WhisperContextParams.ByValue params) throws FileNotFoundException {
         initContextImpl(modelPath, params);
@@ -73,11 +73,11 @@ public class WhisperCpp implements AutoCloseable {
      */
     public WhisperContextParams.ByValue getContextDefaultParams() {
         WhisperContextParams.ByValue valueParams = new WhisperContextParams.ByValue(
-            lib.whisper_context_default_params_by_ref());
+                lib.whisper_context_default_params_by_ref());
         valueParams.read();
         return valueParams;
     }
-    
+
     /**
      * Provides default params which can be used with `whisper_full()` etc.
      * Because this function allocates memory for the params, the caller must call either:
@@ -186,13 +186,13 @@ public class WhisperCpp implements AutoCloseable {
         }
 
         int nSegments = lib.whisper_full_n_segments(ctx);
-        List<WhisperSegment> segments= new ArrayList<>(nSegments);
+        List<WhisperSegment> segments = new ArrayList<>(nSegments);
 
         for (int i = 0; i < nSegments; i++) {
             long t0 = lib.whisper_full_get_segment_t0(ctx, i);
             String text = lib.whisper_full_get_segment_text(ctx, i);
             long t1 = lib.whisper_full_get_segment_t1(ctx, i);
-            segments.add(new WhisperSegment(t0,t1,text));
+            segments.add(new WhisperSegment(t0, t1, text));
         }
 
         return segments;
@@ -215,5 +215,25 @@ public class WhisperCpp implements AutoCloseable {
 
     public int benchGgmlMulMat(int nthread) {
         return lib.whisper_bench_ggml_mul_mat(nthread);
+    }
+
+    public WhisperCppJnaLibrary getLib() {
+        return lib;
+    }
+
+    public Pointer getCtx() {
+        return ctx;
+    }
+
+    public Pointer getParamsPointer() {
+        return paramsPointer;
+    }
+
+    public Pointer getGreedyParamsPointer() {
+        return greedyParamsPointer;
+    }
+
+    public Pointer getBeamParamsPointer() {
+        return beamParamsPointer;
     }
 }
