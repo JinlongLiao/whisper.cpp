@@ -3,6 +3,7 @@ package io.github.ggerganov.whispercpp;
 import com.sun.jna.Library;
 import com.sun.jna.Native;
 import com.sun.jna.Pointer;
+import io.github.ggerganov.whispercpp.callbacks.GgmlLogCallback;
 import io.github.ggerganov.whispercpp.model.WhisperModelLoader;
 import io.github.ggerganov.whispercpp.model.WhisperTokenData;
 import io.github.ggerganov.whispercpp.params.WhisperContextParams;
@@ -44,8 +45,8 @@ public interface WhisperCppJnaLibrary extends Library {
     /**
      * Allocate (almost) all memory needed for the model by loading from a buffer.
      *
-     * @param buffer       Model buffer
-     * @param buffer_size  Size of the model buffer
+     * @param buffer      Model buffer
+     * @param buffer_size Size of the model buffer
      * @return Whisper context on success, null on failure
      */
     Pointer whisper_init_from_buffer(Pointer buffer, int buffer_size);
@@ -69,8 +70,8 @@ public interface WhisperCppJnaLibrary extends Library {
     /**
      * Allocate (almost) all memory needed for the model by loading from a buffer without allocating the state.
      *
-     * @param buffer       Model buffer
-     * @param buffer_size  Size of the model buffer
+     * @param buffer      Model buffer
+     * @param buffer_size Size of the model buffer
      * @return Whisper context on success, null on failure
      */
     Pointer whisper_init_from_buffer_no_state(Pointer buffer, int buffer_size);
@@ -118,8 +119,8 @@ public interface WhisperCppJnaLibrary extends Library {
     int whisper_pcm_to_mel(Pointer ctx, final float[] samples, int n_samples, int n_threads);
 
     /**
-     * @param ctx Pointer to a WhisperContext
-     * @param state Pointer to WhisperState
+     * @param ctx       Pointer to a WhisperContext
+     * @param state     Pointer to WhisperState
      * @param n_samples
      * @param n_threads
      * @return 0 on success
@@ -130,15 +131,18 @@ public interface WhisperCppJnaLibrary extends Library {
      * This can be used to set a custom log mel spectrogram inside the default state of the provided whisper context.
      * Use this instead of whisper_pcm_to_mel() if you want to provide your own log mel spectrogram.
      * n_mel must be 80
+     *
      * @return 0 on success
      */
     int whisper_set_mel(Pointer ctx, final float[] data, int n_len, int n_mel);
+
     int whisper_set_mel_with_state(Pointer ctx, Pointer state, final float[] data, int n_len, int n_mel);
 
     /**
      * Run the Whisper encoder on the log mel spectrogram stored inside the default state in the provided whisper context.
      * Make sure to call whisper_pcm_to_mel() or whisper_set_mel() first.
      * Offset can be used to specify the offset of the first frame in the spectrogram.
+     *
      * @return 0 on success
      */
     int whisper_encode(Pointer ctx, int offset, int n_threads);
@@ -158,7 +162,7 @@ public interface WhisperCppJnaLibrary extends Library {
     /**
      * @param ctx
      * @param state
-     * @param tokens Pointer to int tokens
+     * @param tokens    Pointer to int tokens
      * @param n_tokens
      * @param n_past
      * @param n_threads
@@ -175,18 +179,22 @@ public interface WhisperCppJnaLibrary extends Library {
      */
     int whisper_tokenize(Pointer ctx, String text, Pointer tokens, int n_max_tokens);
 
-    /** Largest language id (i.e. number of available languages - 1) */
+    /**
+     * Largest language id (i.e. number of available languages - 1)
+     */
     int whisper_lang_max_id();
 
     /**
      * @return the id of the specified language, returns -1 if not found.
      * Examples:
-     *   "de" -&gt; 2
-     *   "german" -&gt; 2
+     * "de" -&gt; 2
+     * "german" -&gt; 2
      */
     int whisper_lang_id(String lang);
 
-    /** @return the short string of the specified language id (e.g. 2 -&gt; "de"), returns nullptr if not found */
+    /**
+     * @return the short string of the specified language id (e.g. 2 -&gt; "de"), returns nullptr if not found
+     */
     String whisper_lang_str(int id);
 
     /**
@@ -195,32 +203,48 @@ public interface WhisperCppJnaLibrary extends Library {
      * Returns the top language id or negative on failure
      * If not null, fills the lang_probs array with the probabilities of all languages
      * The array must be whisper_lang_max_id() + 1 in size
-     *
+     * <p>
      * ref: https://github.com/openai/whisper/blob/main/whisper/decoding.py#L18-L69
      */
     int whisper_lang_auto_detect(Pointer ctx, int offset_ms, int n_threads, float[] lang_probs);
 
     int whisper_lang_auto_detect_with_state(Pointer ctx, Pointer state, int offset_ms, int n_threads, float[] lang_probs);
 
-    int whisper_n_len           (Pointer ctx); // mel length
-    int whisper_n_len_from_state(Pointer state); // mel length
-    int whisper_n_vocab         (Pointer ctx);
-    int whisper_n_text_ctx      (Pointer ctx);
-    int whisper_n_audio_ctx     (Pointer ctx);
-    int whisper_is_multilingual (Pointer ctx);
+    int whisper_n_len(Pointer ctx); // mel length
 
-    int whisper_model_n_vocab      (Pointer ctx);
-    int whisper_model_n_audio_ctx  (Pointer ctx);
+    int whisper_n_len_from_state(Pointer state); // mel length
+
+    int whisper_n_vocab(Pointer ctx);
+
+    int whisper_n_text_ctx(Pointer ctx);
+
+    int whisper_n_audio_ctx(Pointer ctx);
+
+    int whisper_is_multilingual(Pointer ctx);
+
+    int whisper_model_n_vocab(Pointer ctx);
+
+    int whisper_model_n_audio_ctx(Pointer ctx);
+
     int whisper_model_n_audio_state(Pointer ctx);
-    int whisper_model_n_audio_head (Pointer ctx);
+
+    int whisper_model_n_audio_head(Pointer ctx);
+
     int whisper_model_n_audio_layer(Pointer ctx);
-    int whisper_model_n_text_ctx   (Pointer ctx);
-    int whisper_model_n_text_state (Pointer ctx);
-    int whisper_model_n_text_head  (Pointer ctx);
-    int whisper_model_n_text_layer (Pointer ctx);
-    int whisper_model_n_mels       (Pointer ctx);
-    int whisper_model_ftype        (Pointer ctx);
-    int whisper_model_type         (Pointer ctx);
+
+    int whisper_model_n_text_ctx(Pointer ctx);
+
+    int whisper_model_n_text_state(Pointer ctx);
+
+    int whisper_model_n_text_head(Pointer ctx);
+
+    int whisper_model_n_text_layer(Pointer ctx);
+
+    int whisper_model_n_mels(Pointer ctx);
+
+    int whisper_model_ftype(Pointer ctx);
+
+    int whisper_model_type(Pointer ctx);
 
     /**
      * Token logits obtained from the last call to whisper_decode().
@@ -228,28 +252,38 @@ public interface WhisperCppJnaLibrary extends Library {
      * Rows: n_tokens
      * Cols: n_vocab
      */
-    float[] whisper_get_logits           (Pointer ctx);
+    float[] whisper_get_logits(Pointer ctx);
+
     float[] whisper_get_logits_from_state(Pointer state);
 
     // Token Id -> String. Uses the vocabulary in the provided context
     String whisper_token_to_str(Pointer ctx, int token);
+
     String whisper_model_type_readable(Pointer ctx);
 
     // Special tokens
-    int whisper_token_eot (Pointer ctx);
-    int whisper_token_sot (Pointer ctx);
+    int whisper_token_eot(Pointer ctx);
+
+    int whisper_token_sot(Pointer ctx);
+
     int whisper_token_prev(Pointer ctx);
+
     int whisper_token_solm(Pointer ctx);
-    int whisper_token_not (Pointer ctx);
-    int whisper_token_beg (Pointer ctx);
+
+    int whisper_token_not(Pointer ctx);
+
+    int whisper_token_beg(Pointer ctx);
+
     int whisper_token_lang(Pointer ctx, int lang_id);
 
     // Task tokens
-    int whisper_token_translate (Pointer ctx);
+    int whisper_token_translate(Pointer ctx);
+
     int whisper_token_transcribe(Pointer ctx);
 
     // Performance information from the default state.
     void whisper_print_timings(Pointer ctx);
+
     void whisper_reset_timings(Pointer ctx);
 
     // Note: Even if `whisper_full_params is stripped back to just 4 ints, JNA throws "Invalid memory access"
@@ -288,9 +322,10 @@ public interface WhisperCppJnaLibrary extends Library {
     /**
      * Number of generated text segments.
      * A segment can be a few words, a sentence, or even a paragraph.
+     *
      * @param ctx Pointer to WhisperContext
      */
-    int whisper_full_n_segments (Pointer ctx);
+    int whisper_full_n_segments(Pointer ctx);
 
     /**
      * @param state Pointer to WhisperState
@@ -299,61 +334,96 @@ public interface WhisperCppJnaLibrary extends Library {
 
     /**
      * Language id associated with the context's default state.
+     *
      * @param ctx Pointer to WhisperContext
      */
     int whisper_full_lang_id(Pointer ctx);
 
-    /** Language id associated with the provided state */
+    /**
+     * Language id associated with the provided state
+     */
     int whisper_full_lang_id_from_state(Pointer state);
 
 
-    /** Get the start time of the specified segment. */
+    /**
+     * Get the start time of the specified segment.
+     */
     long whisper_full_get_segment_t0(Pointer ctx, int i_segment);
 
-    /** Get the start time of the specified segment from the state. */
+    /**
+     * Get the start time of the specified segment from the state.
+     */
     long whisper_full_get_segment_t0_from_state(Pointer state, int i_segment);
 
-    /** Get the end time of the specified segment. */
+    /**
+     * Get the end time of the specified segment.
+     */
     long whisper_full_get_segment_t1(Pointer ctx, int i_segment);
 
-    /** Get the end time of the specified segment from the state. */
+    /**
+     * Get the end time of the specified segment from the state.
+     */
     long whisper_full_get_segment_t1_from_state(Pointer state, int i_segment);
 
-    /** Get the text of the specified segment. */
+    /**
+     * Get the text of the specified segment.
+     */
     String whisper_full_get_segment_text(Pointer ctx, int i_segment);
 
-    /** Get the text of the specified segment from the state. */
+    /**
+     * Get the text of the specified segment from the state.
+     */
     String whisper_full_get_segment_text_from_state(Pointer state, int i_segment);
 
-    /** Get the number of tokens in the specified segment. */
+    /**
+     * Get the number of tokens in the specified segment.
+     */
     int whisper_full_n_tokens(Pointer ctx, int i_segment);
 
-    /** Get the number of tokens in the specified segment from the state. */
+    /**
+     * Get the number of tokens in the specified segment from the state.
+     */
     int whisper_full_n_tokens_from_state(Pointer state, int i_segment);
 
-    /** Get the token text of the specified token in the specified segment. */
+    /**
+     * Get the token text of the specified token in the specified segment.
+     */
     String whisper_full_get_token_text(Pointer ctx, int i_segment, int i_token);
 
 
-    /** Get the token text of the specified token in the specified segment from the state. */
+    /**
+     * Get the token text of the specified token in the specified segment from the state.
+     */
     String whisper_full_get_token_text_from_state(Pointer ctx, Pointer state, int i_segment, int i_token);
 
-    /** Get the token ID of the specified token in the specified segment. */
+    /**
+     * Get the token ID of the specified token in the specified segment.
+     */
     int whisper_full_get_token_id(Pointer ctx, int i_segment, int i_token);
 
-    /** Get the token ID of the specified token in the specified segment from the state. */
+    /**
+     * Get the token ID of the specified token in the specified segment from the state.
+     */
     int whisper_full_get_token_id_from_state(Pointer state, int i_segment, int i_token);
 
-    /** Get token data for the specified token in the specified segment. */
+    /**
+     * Get token data for the specified token in the specified segment.
+     */
     WhisperTokenData whisper_full_get_token_data(Pointer ctx, int i_segment, int i_token);
 
-    /** Get token data for the specified token in the specified segment from the state. */
+    /**
+     * Get token data for the specified token in the specified segment from the state.
+     */
     WhisperTokenData whisper_full_get_token_data_from_state(Pointer state, int i_segment, int i_token);
 
-    /** Get the probability of the specified token in the specified segment. */
+    /**
+     * Get the probability of the specified token in the specified segment.
+     */
     float whisper_full_get_token_p(Pointer ctx, int i_segment, int i_token);
 
-    /** Get the probability of the specified token in the specified segment from the state. */
+    /**
+     * Get the probability of the specified token in the specified segment from the state.
+     */
     float whisper_full_get_token_p_from_state(Pointer state, int i_segment, int i_token);
 
     /**
@@ -387,4 +457,12 @@ public interface WhisperCppJnaLibrary extends Library {
      * @return The result of the benchmark as a string.
      */
     String whisper_bench_ggml_mul_mat_str(int nThreads);
+
+    /**
+     * Set callback for all future logging events
+     *
+     * @param ggmlLogCallback The logging callback function
+     * @param userData    User data to pass to the callback
+     */
+    void whisper_log_set(GgmlLogCallback ggmlLogCallback, Pointer userData);
 }

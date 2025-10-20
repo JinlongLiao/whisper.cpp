@@ -5,6 +5,10 @@ plugins {
 //    id 'signing'
 }
 
+compileJava.options.encoding = 'UTF-8'
+compileTestJava.options.encoding = 'UTF-8'
+javadoc.options.encoding = 'UTF-8'
+
 archivesBaseName = 'whispercpp'
 group = 'io.github.ggerganov'
 version = '1.8.2.SNAPSHOT'

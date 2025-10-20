@@ -3,6 +3,7 @@ package io.github.ggerganov.whispercpp;
 import com.sun.jna.Native;
 import com.sun.jna.Pointer;
 import io.github.ggerganov.whispercpp.bean.WhisperSegment;
+import io.github.ggerganov.whispercpp.callbacks.GgmlLogCallback;
 import io.github.ggerganov.whispercpp.params.WhisperContextParams;
 import io.github.ggerganov.whispercpp.params.WhisperFullParams;
 import io.github.ggerganov.whispercpp.params.WhisperSamplingStrategy;
@@ -22,6 +23,10 @@ public class WhisperCpp implements AutoCloseable {
     private Pointer paramsPointer = null;
     private Pointer greedyParamsPointer = null;
     private Pointer beamParamsPointer = null;
+    /**
+     * 保存回调引用，防止被GC回收
+     */
+    private GgmlLogCallback logCallback = null;
 
     public File modelDir() {
         String modelDirPath = System.getenv("XDG_CACHE_HOME");
@@ -215,6 +220,24 @@ public class WhisperCpp implements AutoCloseable {
 
     public int benchGgmlMulMat(int nthread) {
         return lib.whisper_bench_ggml_mul_mat(nthread);
+    }
+
+    /**
+     * 设置日志回调函数
+     *
+     * @param callback 日志回调接口实现
+     */
+    public void setLogCallback(GgmlLogCallback callback) {
+        // 保存回调引用，防止被垃圾回收
+        this.logCallback = callback;
+        // 调用原生函数设置日志回调
+        if (callback != null) {
+            // 这里可以传递用户数据，但为简单起见设为null
+            lib.whisper_log_set(callback, null);
+        } else {
+            // 重置为默认日志处理
+            lib.whisper_log_set(null, null);
+        }
     }
 
     public WhisperCppJnaLibrary getLib() {
