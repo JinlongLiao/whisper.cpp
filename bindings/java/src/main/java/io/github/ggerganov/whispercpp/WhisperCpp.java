@@ -13,11 +13,13 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Before calling most methods, you must call `initContext(modelPath)` to initialise the `ctx` Pointer.
  */
 public class WhisperCpp implements AutoCloseable {
+
     private final WhisperCppJnaLibrary lib = WhisperCppJnaLibrary.instance;
     private Pointer ctx = null;
     private Pointer paramsPointer = null;
@@ -116,7 +118,9 @@ public class WhisperCpp implements AutoCloseable {
     public void close() {
         freeContext();
         freeParams();
-        System.out.println("Whisper closed");
+        if (Objects.nonNull(logCallback)) {
+            logCallback.invoke(1,"Whisper closed",null);
+        }
     }
 
     private void freeContext() {
