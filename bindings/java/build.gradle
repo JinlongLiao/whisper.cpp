@@ -153,8 +153,8 @@ publishing {
         maven {
             url = 'https://packages.aliyun.com/maven/repository/2193731-snapshot-iIPWHj/'
             credentials {
-                username = '5ed8fe51893c20c8bfcebc06'
-                password = 'dw6=]BZMap(Z'
+                username = System.getenv("MAVEN_USERNAME")
+                password = System.getenv("MAVEN_PASSWORD")
             }
         }
     }
