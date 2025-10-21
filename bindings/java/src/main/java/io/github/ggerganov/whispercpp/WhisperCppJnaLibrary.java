@@ -8,101 +8,12 @@ import io.github.ggerganov.whispercpp.model.WhisperModelLoader;
 import io.github.ggerganov.whispercpp.model.WhisperTokenData;
 import io.github.ggerganov.whispercpp.params.WhisperContextParams;
 import io.github.ggerganov.whispercpp.params.WhisperFullParams;
-
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
+import io.github.ggerganov.whispercpp.plugins.LocalLib;
 
 public interface WhisperCppJnaLibrary extends Library {
 
-    WhisperCppJnaLibrary instance = Native.load(getLibPath(), WhisperCppJnaLibrary.class);
+    WhisperCppJnaLibrary whisper = Native.load(LocalLib.getLibPath(3), WhisperCppJnaLibrary.class);
 
-    static String getLibPath() {
-        File dirFolder = new File(System.getProperty("log.path", System.getProperty("java.io.tmpdir")), "whisper/");
-        if (!dirFolder.exists()) {
-            dirFolder.mkdirs();
-        }
-        String os = System.getProperty("os.name").toLowerCase();
-        boolean isWindows = os.contains("windows");
-        boolean isMac = os.contains("mac");
-        File ggml;
-        File ggmlBase;
-        File ggmlCpu;
-        File whisper;
-        String path;
-        if (isWindows) {
-            ggml = new File(dirFolder, "ggml.dll");
-            ggmlBase = new File(dirFolder, "ggml-base.dll");
-            ggmlCpu = new File(dirFolder, "ggml-cpu.dll");
-            whisper = new File(dirFolder, "whisper.dll");
-            path = "/win32-x86-64";
-        } else if (isMac) {
-            ggml = new File(dirFolder, "libggml.dylib");
-            ggmlBase = new File(dirFolder, "libggml-base.dylib");
-            ggmlCpu = new File(dirFolder, "libggml-cpu.dylib");
-            whisper = new File(dirFolder, "libwhisper.dylib");
-            path = "/darwin";
-        } else {
-            ggml = new File(dirFolder, "libggml.so");
-            ggmlBase = new File(dirFolder, "libggml-base.so");
-            ggmlCpu = new File(dirFolder, "libggml-cpu.so");
-            whisper = new File(dirFolder, "libwhisper.so");
-            path = "/linux-x86-64";
-        }
-        copyFile(path, ggml);
-        copyFile(path, ggmlBase);
-        copyFile(path, ggmlCpu);
-        copyFile(path, whisper);
-        return whisper.getAbsolutePath();
-    }
-
-    /**
-     * Copies a file bundled in the package to the supplied destination.
-     *
-     * @param path The name of the bundled file.
-     * @param dest The destination.
-     * @throws RuntimeException If an unexpected error occurs.
-     */
-    static void copyFile(String path, File dest) {
-        try {
-            InputStream is = WhisperCppJnaLibrary.class.getResourceAsStream(path + "/" + dest.getName());
-            if (is != null) {
-                try {
-                    dest.createNewFile();
-                    dest.deleteOnExit();
-                    copy(is, dest.getAbsolutePath());
-
-                    is.close();
-                } catch (IOException ioex) {
-                }
-            }
-        } catch (NullPointerException ex) {
-
-            throw ex;
-        }
-    }
-
-    /**
-     * Copy a file from source to destination.
-     *
-     * @param source      The name of the bundled file.
-     * @param destination the destination
-     * @return True if succeeded , False if not
-     */
-    static boolean copy(InputStream source, String destination) {
-        boolean success = true;
-
-        try {
-            Files.copy(source, Paths.get(destination), StandardCopyOption.REPLACE_EXISTING);
-        } catch (IOException ex) {
-            success = false;
-        }
-
-        return success;
-    }
 
     String whisper_print_system_info();
 

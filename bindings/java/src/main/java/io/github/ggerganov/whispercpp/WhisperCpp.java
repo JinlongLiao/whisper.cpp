@@ -7,6 +7,9 @@ import io.github.ggerganov.whispercpp.callbacks.GgmlLogCallback;
 import io.github.ggerganov.whispercpp.params.WhisperContextParams;
 import io.github.ggerganov.whispercpp.params.WhisperFullParams;
 import io.github.ggerganov.whispercpp.params.WhisperSamplingStrategy;
+import io.github.ggerganov.whispercpp.plugins.GGMLBaseLibrary;
+import io.github.ggerganov.whispercpp.plugins.GGMLCpuLibrary;
+import io.github.ggerganov.whispercpp.plugins.GGMLLibrary;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -19,8 +22,14 @@ import java.util.Objects;
  * Before calling most methods, you must call `initContext(modelPath)` to initialise the `ctx` Pointer.
  */
 public class WhisperCpp implements AutoCloseable {
+    static {
+        GGMLBaseLibrary ggmlBaseLibrary = GGMLBaseLibrary.GGML_BASE_LIBRARY;
+        GGMLCpuLibrary ggmlCpuLibrary = GGMLCpuLibrary.GGML_CPU_LIBRARY;
+        GGMLLibrary ggmlLibrary = GGMLLibrary.GGML_LIBRARY;
+        WhisperCppJnaLibrary whisper = WhisperCppJnaLibrary.whisper;
+    }
 
-    private final WhisperCppJnaLibrary lib = WhisperCppJnaLibrary.instance;
+    private static final WhisperCppJnaLibrary whisper = WhisperCppJnaLibrary.whisper;
     private Pointer ctx = null;
     private Pointer paramsPointer = null;
     private Pointer greedyParamsPointer = null;
@@ -56,7 +65,7 @@ public class WhisperCpp implements AutoCloseable {
 
     private void initContextImpl(String modelPath, WhisperContextParams.ByValue params) throws FileNotFoundException {
         if (ctx != null) {
-            lib.whisper_free(ctx);
+            whisper.whisper_free(ctx);
         }
 
         if (!modelPath.contains("/") && !modelPath.contains("\\")) {
@@ -67,7 +76,7 @@ public class WhisperCpp implements AutoCloseable {
             modelPath = new File(modelDir(), modelPath).getAbsolutePath();
         }
 
-        ctx = lib.whisper_init_from_file_with_params(modelPath, params);
+        ctx = whisper.whisper_init_from_file_with_params(modelPath, params);
 
         if (ctx == null) {
             throw new FileNotFoundException(modelPath);
@@ -80,7 +89,7 @@ public class WhisperCpp implements AutoCloseable {
      */
     public WhisperContextParams.ByValue getContextDefaultParams() {
         WhisperContextParams.ByValue valueParams = new WhisperContextParams.ByValue(
-                lib.whisper_context_default_params_by_ref());
+                whisper.whisper_context_default_params_by_ref());
         valueParams.read();
         return valueParams;
     }
@@ -99,12 +108,12 @@ public class WhisperCpp implements AutoCloseable {
         // whisper_full_default_params_by_ref allocates memory which we need to delete, so only create max 1 pointer for each strategy.
         if (strategy == WhisperSamplingStrategy.WHISPER_SAMPLING_GREEDY) {
             if (greedyParamsPointer == null) {
-                greedyParamsPointer = lib.whisper_full_default_params_by_ref(strategy.ordinal());
+                greedyParamsPointer = whisper.whisper_full_default_params_by_ref(strategy.ordinal());
             }
             pointer = greedyParamsPointer;
         } else {
             if (beamParamsPointer == null) {
-                beamParamsPointer = lib.whisper_full_default_params_by_ref(strategy.ordinal());
+                beamParamsPointer = whisper.whisper_full_default_params_by_ref(strategy.ordinal());
             }
             pointer = beamParamsPointer;
         }
@@ -119,13 +128,13 @@ public class WhisperCpp implements AutoCloseable {
         freeContext();
         freeParams();
         if (Objects.nonNull(logCallback)) {
-            logCallback.invoke(1,"Whisper closed",null);
+            logCallback.invoke(1, "Whisper closed", null);
         }
     }
 
     private void freeContext() {
         if (ctx != null) {
-            lib.whisper_free(ctx);
+            whisper.whisper_free(ctx);
         }
     }
 
@@ -160,16 +169,16 @@ public class WhisperCpp implements AutoCloseable {
         valueParams.read();
         */
 
-        if (lib.whisper_full(ctx, whisperParams, audioData, audioData.length) != 0) {
+        if (whisper.whisper_full(ctx, whisperParams, audioData, audioData.length) != 0) {
             throw new IOException("Failed to process audio");
         }
 
-        int nSegments = lib.whisper_full_n_segments(ctx);
+        int nSegments = whisper.whisper_full_n_segments(ctx);
 
         StringBuilder str = new StringBuilder();
 
         for (int i = 0; i < nSegments; i++) {
-            String text = lib.whisper_full_get_segment_text(ctx, i);
+            String text = whisper.whisper_full_get_segment_text(ctx, i);
             System.out.println("Segment:" + text);
             str.append(text);
         }
@@ -190,17 +199,17 @@ public class WhisperCpp implements AutoCloseable {
             throw new IllegalStateException("Model not initialised");
         }
 
-        if (lib.whisper_full(ctx, whisperParams, audioData, audioData.length) != 0) {
+        if (whisper.whisper_full(ctx, whisperParams, audioData, audioData.length) != 0) {
             throw new IOException("Failed to process audio");
         }
 
-        int nSegments = lib.whisper_full_n_segments(ctx);
+        int nSegments = whisper.whisper_full_n_segments(ctx);
         List<WhisperSegment> segments = new ArrayList<>(nSegments);
 
         for (int i = 0; i < nSegments; i++) {
-            long t0 = lib.whisper_full_get_segment_t0(ctx, i);
-            String text = lib.whisper_full_get_segment_text(ctx, i);
-            long t1 = lib.whisper_full_get_segment_t1(ctx, i);
+            long t0 = whisper.whisper_full_get_segment_t0(ctx, i);
+            String text = whisper.whisper_full_get_segment_text(ctx, i);
+            long t1 = whisper.whisper_full_get_segment_t1(ctx, i);
             segments.add(new WhisperSegment(t0, t1, text));
         }
 
@@ -215,15 +224,15 @@ public class WhisperCpp implements AutoCloseable {
 //    }
 
     public String getSystemInfo() {
-        return lib.whisper_print_system_info();
+        return whisper.whisper_print_system_info();
     }
 
     public int benchMemcpy(int nthread) {
-        return lib.whisper_bench_memcpy(nthread);
+        return whisper.whisper_bench_memcpy(nthread);
     }
 
     public int benchGgmlMulMat(int nthread) {
-        return lib.whisper_bench_ggml_mul_mat(nthread);
+        return whisper.whisper_bench_ggml_mul_mat(nthread);
     }
 
     /**
@@ -237,15 +246,19 @@ public class WhisperCpp implements AutoCloseable {
         // 调用原生函数设置日志回调
         if (callback != null) {
             // 这里可以传递用户数据，但为简单起见设为null
-            lib.whisper_log_set(callback, null);
+            whisper.whisper_log_set(callback, null);
         } else {
             // 重置为默认日志处理
-            lib.whisper_log_set(null, null);
+            whisper.whisper_log_set(null, null);
         }
     }
 
     public WhisperCppJnaLibrary getLib() {
-        return lib;
+        return getWhisper();
+    }
+
+    public WhisperCppJnaLibrary getWhisper() {
+        return whisper;
     }
 
     public Pointer getCtx() {
