@@ -15,6 +15,9 @@ import io.github.ggerganov.whispercpp.WhisperCppJnaLibrary;
  * @date 2025/10/21 21:34
  */
 public final class LocalLib {
+    public static boolean isMac;
+    public static boolean isWindows;
+    public static boolean isLinux;
 
     public static String getLibPath(int init) {
         File dirFolder = new File(System.getProperty("log.path", System.getProperty("java.io.tmpdir")), "whisper/");
@@ -22,21 +25,23 @@ public final class LocalLib {
             dirFolder.mkdirs();
         }
         String os = System.getProperty("os.name").toLowerCase();
-        boolean isWindows = os.contains("windows");
-        boolean isMac = os.contains("mac");
+        isWindows = os.contains("windows");
+        isMac = os.contains("mac");
         File ggml;
         File ggmlBase;
         File ggmlCpu;
         File whisper;
         File blas = null;
         File metal = null;
+        File parakeet = null;
         String path;
-        boolean isLinux = false;
+        isLinux = false;
         if (isWindows) {
             ggml = new File(dirFolder, "ggml.dll");
             ggmlBase = new File(dirFolder, "ggml-base.dll");
             ggmlCpu = new File(dirFolder, "ggml-cpu.dll");
             whisper = new File(dirFolder, "whisper.dll");
+            parakeet = new File(dirFolder, "parakeet.dll");
             path = "/win32-x86-64";
         } else if (isMac) {
             ggml = new File(dirFolder, "libggml.dylib");
@@ -51,6 +56,7 @@ public final class LocalLib {
             ggmlBase = new File(dirFolder, "libggml-base.so");
             ggmlCpu = new File(dirFolder, "libggml-cpu.so");
             whisper = new File(dirFolder, "libwhisper.so");
+            parakeet = new File(dirFolder, "libparakeet.so");
             path = "/linux-x86-64";
             isLinux = true;
         }
@@ -64,6 +70,9 @@ public final class LocalLib {
             }
             if (Objects.nonNull(metal)) {
                 copyFile(path, metal);
+            }
+            if (Objects.nonNull(parakeet)) {
+                copyFile(path, parakeet);
             }
         }
         if (init == 0) {
@@ -86,6 +95,12 @@ public final class LocalLib {
                 return null;
             }
             return metal.getAbsolutePath();
+        }
+        if (init == 5) {
+            if (Objects.isNull(parakeet)) {
+                return null;
+            }
+            return parakeet.getAbsolutePath();
         }
         return whisper.getAbsolutePath();
     }

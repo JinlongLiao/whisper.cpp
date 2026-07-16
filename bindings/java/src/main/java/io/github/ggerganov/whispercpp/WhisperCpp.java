@@ -15,9 +15,7 @@ import io.github.ggerganov.whispercpp.callbacks.GgmlLogCallback;
 import io.github.ggerganov.whispercpp.params.WhisperContextParams;
 import io.github.ggerganov.whispercpp.params.WhisperFullParams;
 import io.github.ggerganov.whispercpp.params.WhisperSamplingStrategy;
-import io.github.ggerganov.whispercpp.plugins.GGMLBaseLibrary;
-import io.github.ggerganov.whispercpp.plugins.GGMLCpuLibrary;
-import io.github.ggerganov.whispercpp.plugins.GGMLLibrary;
+import io.github.ggerganov.whispercpp.plugins.*;
 
 /**
  * Before calling most methods, you must call `initContext(modelPath)` to initialise the `ctx` Pointer.
@@ -28,6 +26,12 @@ public class WhisperCpp implements AutoCloseable {
         GGMLCpuLibrary ggmlCpuLibrary = GGMLCpuLibrary.GGML_CPU_LIBRARY;
         GGMLLibrary ggmlLibrary = GGMLLibrary.GGML_LIBRARY;
         WhisperCppJnaLibrary whisper = WhisperCppJnaLibrary.whisper;
+        if (!LocalLib.isMac) {
+            GGMLParakeetLibrary parakeetLibrary = GGMLParakeetLibrary.GGML_PARAKEET_LIBRARY;
+        } else {
+            GGMLMetaLibrary metaLibrary = GGMLMetaLibrary.GGML_META_LIBRARY;
+            GGMLBlasLibrary blasLibrary = GGMLBlasLibrary.GGML_BLAS_LIBRARY;
+        }
     }
 
     private static final WhisperCppJnaLibrary whisper = WhisperCppJnaLibrary.whisper;

@@ -24,7 +24,7 @@ class WhisperCppTest {
         // By default, models are loaded from ~/.cache/whisper/ and are usually named "ggml-${name}.bin"
         // or you can provide the absolute path to the model file.
         //String modelName = "../../models/ggml-tiny.bin";
-        String modelName = "../../models/ggml-tiny.en.bin";
+        String modelName = "../../models/ggml-base.en.bin";
         try {
             WhisperContextParams.ByValue contextParams = whisper.getContextDefaultParams();
             contextParams.useFlashAttn(false);  // Disable flash attention
