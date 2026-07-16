@@ -115,6 +115,7 @@ setup_framework_structure() {
 
     # Copy all required headers (common for all platforms)
     cp include/whisper.h           ${header_path}
+    cp include/parakeet.h          ${header_path}
     cp ggml/include/ggml.h         ${header_path}
     cp ggml/include/ggml-alloc.h   ${header_path}
     cp ggml/include/ggml-backend.h ${header_path}
@@ -127,6 +128,7 @@ setup_framework_structure() {
     cat > ${module_path}module.modulemap << EOF
 framework module whisper {
     header "whisper.h"
+    header "parakeet.h"
     header "ggml.h"
     header "ggml-alloc.h"
     header "ggml-backend.h"
@@ -245,6 +247,7 @@ combine_static_libraries() {
 
     local libs=(
         "${base_dir}/${build_dir}/src/${release_dir}/libwhisper.a"
+        "${base_dir}/${build_dir}/src/${release_dir}/libparakeet.a"
         "${base_dir}/${build_dir}/ggml/src/${release_dir}/libggml.a"
         "${base_dir}/${build_dir}/ggml/src/${release_dir}/libggml-base.a"
         "${base_dir}/${build_dir}/ggml/src/${release_dir}/libggml-cpu.a"
@@ -559,7 +562,7 @@ xcodebuild -create-xcframework \
     -framework $(pwd)/build-ios-device/framework/whisper.framework \
     -debug-symbols $(pwd)/build-ios-device/dSYMs/whisper.dSYM \
     -framework $(pwd)/build-macos/framework/whisper.framework \
-    -debug-symbols $(pwd)/build-macos/dSYMS/whisper.dSYM \
+    -debug-symbols $(pwd)/build-macos/dSYMs/whisper.dSYM \
     -framework $(pwd)/build-visionos/framework/whisper.framework \
     -debug-symbols $(pwd)/build-visionos/dSYMs/whisper.dSYM \
     -framework $(pwd)/build-visionos-sim/framework/whisper.framework \
