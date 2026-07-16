@@ -3,6 +3,7 @@ package io.github.ggerganov.whispercpp;
 import com.sun.jna.Library;
 import com.sun.jna.Native;
 import com.sun.jna.Pointer;
+
 import io.github.ggerganov.whispercpp.callbacks.GgmlLogCallback;
 import io.github.ggerganov.whispercpp.model.WhisperModelLoader;
 import io.github.ggerganov.whispercpp.model.WhisperTokenData;
@@ -12,7 +13,7 @@ import io.github.ggerganov.whispercpp.plugins.LocalLib;
 
 public interface WhisperCppJnaLibrary extends Library {
 
-    WhisperCppJnaLibrary whisper = Native.load(LocalLib.getLibPath(3), WhisperCppJnaLibrary.class);
+    WhisperCppJnaLibrary whisper = Native.load(LocalLib.getLibPath(-1), WhisperCppJnaLibrary.class);
 
 
     String whisper_print_system_info();

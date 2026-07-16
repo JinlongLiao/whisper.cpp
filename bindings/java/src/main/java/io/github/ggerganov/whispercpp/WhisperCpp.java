@@ -2,6 +2,14 @@ package io.github.ggerganov.whispercpp;
 
 import com.sun.jna.Native;
 import com.sun.jna.Pointer;
+
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+
 import io.github.ggerganov.whispercpp.bean.WhisperSegment;
 import io.github.ggerganov.whispercpp.callbacks.GgmlLogCallback;
 import io.github.ggerganov.whispercpp.params.WhisperContextParams;
@@ -10,13 +18,6 @@ import io.github.ggerganov.whispercpp.params.WhisperSamplingStrategy;
 import io.github.ggerganov.whispercpp.plugins.GGMLBaseLibrary;
 import io.github.ggerganov.whispercpp.plugins.GGMLCpuLibrary;
 import io.github.ggerganov.whispercpp.plugins.GGMLLibrary;
-
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
 
 /**
  * Before calling most methods, you must call `initContext(modelPath)` to initialise the `ctx` Pointer.

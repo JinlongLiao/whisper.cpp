@@ -1,13 +1,14 @@
 package io.github.ggerganov.whispercpp.plugins;
 
-import io.github.ggerganov.whispercpp.WhisperCppJnaLibrary;
-
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.util.Objects;
+
+import io.github.ggerganov.whispercpp.WhisperCppJnaLibrary;
 
 /**
  * @author liaojinlong
@@ -27,6 +28,8 @@ public final class LocalLib {
         File ggmlBase;
         File ggmlCpu;
         File whisper;
+        File blas = null;
+        File metal = null;
         String path;
         boolean isLinux = false;
         if (isWindows) {
@@ -40,6 +43,8 @@ public final class LocalLib {
             ggmlBase = new File(dirFolder, "libggml-base.dylib");
             ggmlCpu = new File(dirFolder, "libggml-cpu.dylib");
             whisper = new File(dirFolder, "libwhisper.dylib");
+            blas = new File(dirFolder, "libggml-blas.dylib");
+            metal = new File(dirFolder, "libggml-metal.dylib");
             path = "/darwin";
         } else {
             ggml = new File(dirFolder, "libggml.so");
@@ -54,6 +59,12 @@ public final class LocalLib {
             copyFile(path, ggmlBase);
             copyFile(path, ggmlCpu);
             copyFile(path, whisper);
+            if (Objects.nonNull(blas)) {
+                copyFile(path, blas);
+            }
+            if (Objects.nonNull(metal)) {
+                copyFile(path, metal);
+            }
         }
         if (init == 0) {
             return ggmlBase.getAbsolutePath();
@@ -63,6 +74,18 @@ public final class LocalLib {
         }
         if (init == 2) {
             return ggml.getAbsolutePath();
+        }
+        if (init == 3) {
+            if (Objects.isNull(blas)) {
+                return null;
+            }
+            return blas.getAbsolutePath();
+        }
+        if (init == 4) {
+            if (Objects.isNull(metal)) {
+                return null;
+            }
+            return metal.getAbsolutePath();
         }
         return whisper.getAbsolutePath();
     }
