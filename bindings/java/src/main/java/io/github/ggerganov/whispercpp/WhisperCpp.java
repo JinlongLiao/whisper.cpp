@@ -26,12 +26,9 @@ public class WhisperCpp implements AutoCloseable {
         GGMLCpuLibrary ggmlCpuLibrary = GGMLCpuLibrary.GGML_CPU_LIBRARY;
         GGMLLibrary ggmlLibrary = GGMLLibrary.GGML_LIBRARY;
         WhisperCppJnaLibrary whisper = WhisperCppJnaLibrary.whisper;
-        if (!LocalLib.isMac) {
-            GGMLParakeetLibrary parakeetLibrary = GGMLParakeetLibrary.GGML_PARAKEET_LIBRARY;
-        } else {
-            GGMLMetaLibrary metaLibrary = GGMLMetaLibrary.GGML_META_LIBRARY;
-            GGMLBlasLibrary blasLibrary = GGMLBlasLibrary.GGML_BLAS_LIBRARY;
-        }
+        GGMLParakeetLibrary parakeetLibrary = GGMLParakeetLibrary.GGML_PARAKEET_LIBRARY;
+        GGMLMetaLibrary metaLibrary = GGMLMetaLibrary.GGML_META_LIBRARY;
+        GGMLBlasLibrary blasLibrary = GGMLBlasLibrary.GGML_BLAS_LIBRARY;
     }
 
     private static final WhisperCppJnaLibrary whisper = WhisperCppJnaLibrary.whisper;

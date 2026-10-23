@@ -50,6 +50,7 @@ public final class LocalLib {
             whisper = new File(dirFolder, "libwhisper.dylib");
             blas = new File(dirFolder, "libggml-blas.dylib");
             metal = new File(dirFolder, "libggml-metal.dylib");
+            parakeet = new File(dirFolder, "libparakeet.dylib");
             path = "/darwin";
         } else {
             ggml = new File(dirFolder, "libggml.so");
