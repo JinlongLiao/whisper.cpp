@@ -76,7 +76,6 @@
         <charsetEncoding>UTF-8</charsetEncoding>
         <maven.compiler.source>8</maven.compiler.source>
         <maven.compiler.target>8</maven.compiler.target>
-        <wlzn.common.version>1.2.3-17-SNAPSHOT</wlzn.common.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
     <dependencies>
@@ -90,6 +89,13 @@
             <artifactId>slf4j-api</artifactId>
             <version>${slf4j.version}</version>
             <scope>provided</scope>
+        </dependency>
+        <!-- 测试通过 Logback 将 ERROR 与其他级别分流，发布的库不绑定日志后端。 -->
+        <dependency>
+            <groupId>ch.qos.logback</groupId>
+            <artifactId>logback-classic</artifactId>
+            <version>1.2.13</version>
+            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
