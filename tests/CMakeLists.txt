@@ -22,6 +22,23 @@ add_test(NAME ${TEST_TARGET}
     -f ${PROJECT_SOURCE_DIR}/samples/jfk.wav)
 set_tests_properties(${TEST_TARGET} PROPERTIES LABELS "tiny;gh")
 
+# whisper-cli must exit with non-zero status when an input cannot be decoded (#4011)
+set(TEST_TARGET test-whisper-cli-bad-audio)
+add_test(NAME ${TEST_TARGET}
+    COMMAND $<TARGET_FILE:whisper-cli>
+    -m ${PROJECT_SOURCE_DIR}/models/for-tests-ggml-tiny.bin
+    -f ${PROJECT_SOURCE_DIR}/README.md)
+set_tests_properties(${TEST_TARGET} PROPERTIES LABELS "tiny;gh" WILL_FAIL TRUE)
+
+# whisper-cli must exit with non-zero status when an output file cannot be written (#4011)
+set(TEST_TARGET test-whisper-cli-bad-output)
+add_test(NAME ${TEST_TARGET}
+    COMMAND $<TARGET_FILE:whisper-cli>
+    -m ${PROJECT_SOURCE_DIR}/models/for-tests-ggml-tiny.bin
+    -f ${PROJECT_SOURCE_DIR}/samples/jfk.wav
+    -otxt -of ${CMAKE_CURRENT_BINARY_DIR}/non-existent-dir/out)
+set_tests_properties(${TEST_TARGET} PROPERTIES LABELS "tiny;gh" WILL_FAIL TRUE)
+
 set(TEST_TARGET test-whisper-cli-tiny.en)
 add_test(NAME ${TEST_TARGET}
     COMMAND $<TARGET_FILE:whisper-cli>
@@ -96,6 +113,33 @@ target_link_libraries(${UTF8_TEST} PRIVATE common)
 add_test(NAME ${UTF8_TEST} COMMAND ${UTF8_TEST})
 set_tests_properties(${UTF8_TEST} PROPERTIES LABELS "unit")
 
+set(BUFFER_LOADER_TEST test-whisper-buffer-loader)
+add_executable(${BUFFER_LOADER_TEST} ${BUFFER_LOADER_TEST}.cpp)
+target_include_directories(${BUFFER_LOADER_TEST} PRIVATE ../include ../ggml/include ../examples)
+target_link_libraries(${BUFFER_LOADER_TEST} PRIVATE common)
+add_test(NAME ${BUFFER_LOADER_TEST} COMMAND ${BUFFER_LOADER_TEST})
+set_tests_properties(${BUFFER_LOADER_TEST} PROPERTIES LABELS "unit;gh")
+
+# whisper_full() with n_samples == 0 must not read an uninitialized mel (#3978)
+set(ZERO_SAMPLES_TEST test-whisper-zero-samples)
+add_executable(${ZERO_SAMPLES_TEST} ${ZERO_SAMPLES_TEST}.cpp)
+target_include_directories(${ZERO_SAMPLES_TEST} PRIVATE ../include ../ggml/include ../examples)
+target_link_libraries(${ZERO_SAMPLES_TEST} PRIVATE common)
+target_compile_definitions(${ZERO_SAMPLES_TEST} PRIVATE
+    WHISPER_MODEL_PATH="${PROJECT_SOURCE_DIR}/models/for-tests-ggml-tiny.bin")
+add_test(NAME ${ZERO_SAMPLES_TEST} COMMAND ${ZERO_SAMPLES_TEST})
+set_tests_properties(${ZERO_SAMPLES_TEST} PROPERTIES LABELS "tiny;gh")
+
+# abort_callback must be honored during language auto-detection (#3888)
+set(LANG_DETECT_ABORT_TEST test-whisper-lang-detect-abort)
+add_executable(${LANG_DETECT_ABORT_TEST} ${LANG_DETECT_ABORT_TEST}.cpp)
+target_include_directories(${LANG_DETECT_ABORT_TEST} PRIVATE ../include ../ggml/include ../examples)
+target_link_libraries(${LANG_DETECT_ABORT_TEST} PRIVATE common)
+target_compile_definitions(${LANG_DETECT_ABORT_TEST} PRIVATE
+    WHISPER_MODEL_PATH="${PROJECT_SOURCE_DIR}/models/for-tests-ggml-tiny.bin")
+add_test(NAME ${LANG_DETECT_ABORT_TEST} COMMAND ${LANG_DETECT_ABORT_TEST})
+set_tests_properties(${LANG_DETECT_ABORT_TEST} PROPERTIES LABELS "tiny;gh")
+
 # VAD test tests VAD in isolation
 set(VAD_TEST test-vad)
 add_executable(${VAD_TEST} ${VAD_TEST}.cpp)
@@ -126,6 +170,7 @@ target_include_directories(${PARAKEET_TEST} PRIVATE ../include ../ggml/include .
 target_link_libraries(${PARAKEET_TEST} PRIVATE parakeet common)
 target_compile_definitions(${PARAKEET_TEST} PRIVATE
     PARAKEET_MODEL_PATH="${PROJECT_SOURCE_DIR}/models/for-tests-ggml-parakeet-tdt.bin"
+    PARAKEET_BAD_MODEL_PATH="${PROJECT_SOURCE_DIR}/models/for-tests-ggml-parakeet-tdt-bad-nfft0.bin"
     SAMPLE_PATH="${PROJECT_SOURCE_DIR}/samples/jfk.wav")
 add_test(NAME ${PARAKEET_TEST} COMMAND ${PARAKEET_TEST})
 set_tests_properties(${PARAKEET_TEST} PROPERTIES LABELS "parakeet;gh")
@@ -176,4 +221,3 @@ add_parakeet_transcription_test(
     samples/diffusion2023-07-03.flac
     tests/parakeet-expected-diffusion-output.txt
     0.95)
-
