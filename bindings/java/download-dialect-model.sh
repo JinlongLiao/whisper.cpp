@@ -15,6 +15,10 @@ zh-tw-turbo-q8_0         台湾华语 Turbo Q8_0，874 MB
 zh-tw-turbo-f16          台湾华语 Turbo F16，1.62 GB
 nan-breeze26-q5_0        台语 Breeze-ASR-26 Q5_0，1.08 GB
 nan-breeze26-q4_0        台语 Breeze-ASR-26 Q4_0，889 MB
+orbination-q3_k          多语种 Turbo QAT Q3_K，368 MB（本机英文样本通过）
+orbination-q4_k          多语种 Turbo QAT Q4_K，474 MB（本机英文样本通过）
+orbination-q5_k          多语种 Turbo QAT Q5_K，574 MB（本机英文样本通过）
+distil-large-v3_5        英语 Distil-Large-v3.5，1.52 GB
 MODELS
 }
 
@@ -78,6 +82,38 @@ case "$1" in
         local_filename='ggml-breeze-asr-26-q4_0.bin'
         expected_bytes=888932908
         expected_sha256='0e08c5a2d3a5ba4bae7f85d02212e887537f78d7e623d8694313e2dd65de22ec'
+        ;;
+    orbination-q3_k)
+        model_repository='antoniosmich/Orbination-Whisper-AI'
+        model_revision='1885cb56f9f6b6998f1ca156b980ca60f7f0b892'
+        remote_filename='ggml-large-v3-turbo-q3_k.bin'
+        local_filename='ggml-orbination-turbo-q3_k.bin'
+        expected_bytes=367690215
+        expected_sha256='1bb22f0239a07b3ef743bdaa5fd4b4a41ef59cffe890ba54b3bbb69501fd8655'
+        ;;
+    orbination-q4_k)
+        model_repository='antoniosmich/Orbination-Whisper-AI'
+        model_revision='1885cb56f9f6b6998f1ca156b980ca60f7f0b892'
+        remote_filename='ggml-large-v3-turbo-q4_k.bin'
+        local_filename='ggml-orbination-turbo-q4_k.bin'
+        expected_bytes=473992235
+        expected_sha256='e74ac2cff0dd477011e6e476ec268775dd63d131b7fa3660b7a85b0fdf5dafd6'
+        ;;
+    orbination-q5_k)
+        model_repository='antoniosmich/Orbination-Whisper-AI'
+        model_revision='1885cb56f9f6b6998f1ca156b980ca60f7f0b892'
+        remote_filename='ggml-large-v3-turbo-q5_k.bin'
+        local_filename='ggml-orbination-turbo-q5_k.bin'
+        expected_bytes=574041195
+        expected_sha256='543cb6c11f2944160e29020b8100910f260a4bc7c5e939c3ee2c82f2e6e06297'
+        ;;
+    distil-large-v3_5)
+        model_repository='distil-whisper/distil-large-v3.5-ggml'
+        model_revision='960ecb5c2ecfba3ebb9ebe485c1032ec266cf436'
+        remote_filename='ggml-model.bin'
+        local_filename='ggml-distil-large-v3.5.bin'
+        expected_bytes=1519521155
+        expected_sha256='ec2498919b498c5f6b00041adb45650124b3cd9f26f545fffa8f5d11c28dcf26'
         ;;
     *)
         printf '未知模型编号：%s\n' "$1" >&2
