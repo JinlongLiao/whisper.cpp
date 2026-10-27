@@ -1,6 +1,5 @@
 package io.github.ggerganov.whispercpp;
 
-import com.sun.jna.Native;
 import com.sun.jna.Pointer;
 
 import java.io.File;
@@ -155,20 +154,27 @@ public class WhisperCpp implements AutoCloseable {
     }
 
     /**
-     * 从原生分配的默认上下文参数读取字段，返回用于按值传参的 JNA 结构体视图。
+     * 从原生分配的默认上下文参数复制默认值，返回用于按值传参的独立 JNA 结构体。
      * 本方法不要求模型已加载；每次调用会通过 by_ref 入口新分配一份原生参数。
-     * 当前实现未将该原生地址登记到 paramsPointer，close 不会释放这份分配；
-     * 调用方应在所有使用结束后通过 whisper_free_context_params 配对释放其底层指针。
+     * 默认值复制到 JNA 管理的独立内存后，立即通过 whisper_free_context_params 释放原始分配；
+     * 返回值由 JNA 管理生命周期，调用方不得手工释放，多次调用及 close 不影响已返回的参数。
      *
      * @return 已执行 read 的上下文默认参数，字段初始值以实际动态库为准
      * @see WhisperCppJnaLibrary#whisper_context_default_params_by_ref()
      * @see WhisperCppJnaLibrary#whisper_free_context_params(Pointer)
      */
     public WhisperContextParams.ByValue getContextDefaultParams() {
-        WhisperContextParams.ByValue valueParams = new WhisperContextParams.ByValue(
-                whisper.whisper_context_default_params_by_ref());
-        valueParams.read();
-        return valueParams;
+        Pointer nativeParams = whisper.whisper_context_default_params_by_ref();
+        try {
+            WhisperContextParams.ByValue valueParams = new WhisperContextParams.ByValue();
+            int size = valueParams.size();
+            // 默认上下文参数中的对齐头指针为空；复制结构体后即可释放原始 C++ 参数对象。
+            valueParams.getPointer().write(0, nativeParams.getByteArray(0, size), 0, size);
+            valueParams.read();
+            return valueParams;
+        } finally {
+            whisper.whisper_free_context_params(nativeParams);
+        }
     }
 
     /**
@@ -237,21 +243,20 @@ public class WhisperCpp implements AutoCloseable {
 
     /**
      * 按历史参数槽、贪心缓存、束搜索缓存的顺序释放非空指针，并逐个清空引用。
-     * 现有实现使用 Native.free；原生 by_ref 参数实际由 C++ new 分配，配对释放 API 为 whisper_free_params。
-     * 此注释说明当前实现的分配释放兼容性边界，不代表已修复该历史释放方式。
-     * 不负责释放 getContextDefaultParams 每次独立分配的上下文参数。
+     * 原生 by_ref 参数由 C++ new 分配，必须按参数类型调用对应的原生 delete 入口。
+     * getContextDefaultParams 的返回值由 JNA 管理，不属于本方法的释放范围。
      */
     private void freeParams() {
-        if (paramsPointer != null) {
-            Native.free(Pointer.nativeValue(paramsPointer));
+        if (Objects.nonNull(paramsPointer)) {
+            whisper.whisper_free_context_params(paramsPointer);
             paramsPointer = null;
         }
-        if (greedyParamsPointer != null) {
-            Native.free(Pointer.nativeValue(greedyParamsPointer));
+        if (Objects.nonNull(greedyParamsPointer)) {
+            whisper.whisper_free_params(greedyParamsPointer);
             greedyParamsPointer = null;
         }
-        if (beamParamsPointer != null) {
-            Native.free(Pointer.nativeValue(beamParamsPointer));
+        if (Objects.nonNull(beamParamsPointer)) {
+            whisper.whisper_free_params(beamParamsPointer);
             beamParamsPointer = null;
         }
     }

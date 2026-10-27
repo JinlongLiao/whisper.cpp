@@ -81,6 +81,12 @@ copy /y ..\..\build\bin\Release\whisper.dll build\generated\resources\main\win32
 ```
 
 
+## 原生参数生命周期
+
+`WhisperCpp.getContextDefaultParams()` 返回 JNA 管理的独立参数副本，原始 C++ 参数在复制后立即释放。返回值可在实例关闭后继续读写，调用方不要对其底层指针执行原生释放。
+
+`getFullDefaultParams()` 的参数仍由实例缓存，在 `close()` 时通过 `whisper_free_params()` 释放；关闭后不得继续使用旧的参数视图。直接使用低层 `*_default_params_by_ref()` 接口时，调用方仍须通过对应的 `whisper_free_context_params()` 或 `whisper_free_params()` 配对释放。
+
 ## License
 
 The license for the Java bindings is the same as the license for the rest of the whisper.cpp project, which is the MIT License. See the `LICENSE` file for more details.
