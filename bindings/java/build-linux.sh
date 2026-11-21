@@ -55,7 +55,11 @@ for library in sorted(directory.glob('*.so')):
             subprocess.check_call(['patchelf', '--replace-needed', dependency, name, str(library)])
         elif '/' in dependency:
             raise SystemExit('存在外部绝对或相对路径依赖：' + dependency)
-    subprocess.check_call(['patchelf', '--set-soname', library.name, '--set-rpath', '$ORIGIN', str(library)])
+    # 分别修改 SONAME 与搜索路径，并校验后者确实指向同一目录。
+    subprocess.check_call(['patchelf', '--set-soname', library.name, str(library)])
+    subprocess.check_call(['patchelf', '--set-rpath', '$ORIGIN', str(library)])
+    if subprocess.check_output(['patchelf', '--print-rpath', str(library)], text=True).strip() != '$ORIGIN':
+        raise SystemExit('RUNPATH 不是 $ORIGIN：' + str(library))
     print('ABI 和依赖修复完成：' + library.name)
 PY
 
@@ -65,7 +69,8 @@ import ctypes
 import pathlib
 import sys
 
-for library in ('ggml-base', 'ggml-cpu', 'ggml', 'parakeet', 'whisper'):
+# 从入口库开始加载，确保其中的依赖可由 RUNPATH 解析，不被预加载掩盖。
+for library in ('whisper', 'parakeet', 'ggml', 'ggml-cpu', 'ggml-base'):
     ctypes.CDLL(str(pathlib.Path(sys.argv[1]) / ('lib' + library + '.so')))
     print('加载成功：' + library)
 PY

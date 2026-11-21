@@ -2648,8 +2648,8 @@ static bool ggml_thread_apply_priority(int32_t prio) {
     return true;
 }
 
-#elif defined(__linux__)
-// TODO: this may not work on BSD, to be verified
+#elif defined(__linux__) && !defined(__OHOS__)
+// The OpenHarmony public SDK does not expose these affinity APIs.
 
 static bool ggml_thread_apply_affinity(const bool * mask) {
     cpu_set_t cpuset;

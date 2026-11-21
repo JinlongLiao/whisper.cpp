@@ -31,7 +31,7 @@ jobs:
             vs-component: Microsoft.VisualStudio.Component.VC.Tools.x86.x64
             vs-generator: Visual Studio 17 2022
           - platform: windows-arm64
-            runner: windows-11-vs2026-arm64
+            runner: windows-11-vs2026-arm
             resource: win32-aarch64
             arch: ARM64
             vs-arch: arm64
