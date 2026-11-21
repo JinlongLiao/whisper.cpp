@@ -1,12 +1,13 @@
 #!/bin/bash
-# 在 Linux x86-64 上构建并替换 Java 原生资源；需 CMake、C/C++ 编译器、patchelf、readelf、Python 3。
+# 在 Linux x86-64 或 ARM64 上构建 Java 原生资源；需 CMake、编译器、patchelf、readelf、Python 3。
 # 用法：bash bindings/java/build-linux.sh [独立的 CMake 构建目录]
 set -euo pipefail
 
-if [[ "$(uname -s)" != Linux || "$(uname -m)" != x86_64 ]]; then
-    echo "请在 Linux x86-64 的低版本 GLIBC 构建环境中运行。" >&2
-    exit 1
-fi
+case "$(uname -s)/$(uname -m)" in
+    Linux/x86_64) resource=linux-x86-64; elf_machine='Advanced Micro Devices X86-64' ;;
+    Linux/aarch64) resource=linux-aarch64; elf_machine=AArch64 ;;
+    *) echo "请在 Linux x86-64 或 ARM64 的低版本 GLIBC 构建环境中运行。" >&2; exit 1 ;;
+esac
 for tool in cmake patchelf readelf python3; do
     command -v "$tool" >/dev/null || { echo "缺少工具：$tool" >&2; exit 1; }
 done
@@ -30,7 +31,7 @@ for library in "${libraries[@]}"; do
 done
 
 # 校验 ABI 后修复副本：DT_NEEDED、SONAME 与实际释放文件名一致，RUNPATH 仅指向同目录。
-python3 - "$stage_dir" <<'PY'
+python3 - "$stage_dir" "$elf_machine" <<'PY'
 import os
 import pathlib
 import re
@@ -40,8 +41,8 @@ import sys
 directory = pathlib.Path(sys.argv[1])
 for library in sorted(directory.glob('*.so')):
     header = subprocess.check_output(['readelf', '-h', str(library)], env=dict(os.environ, LC_ALL='C'), text=True)
-    if not re.search(r'Machine:\s+Advanced Micro Devices X86-64', header) or 'ELF64' not in header:
-        raise SystemExit('架构不是 Linux x86-64：' + str(library))
+    if not re.search(r'Machine:\s+' + re.escape(sys.argv[2]) + r'\s*$', header, re.MULTILINE) or 'ELF64' not in header:
+        raise SystemExit('ELF 架构与当前构建平台不符：' + str(library))
     versions = subprocess.check_output(['readelf', '--version-info', str(library)], text=True)
     required = [tuple(map(int, version.split('.'))) for version in re.findall(r'GLIBC_(\d+(?:\.\d+)+)', versions)]
     if required and max(required) > (2, 32):
@@ -68,5 +69,6 @@ for library in ('ggml-base', 'ggml-cpu', 'ggml', 'parakeet', 'whisper'):
     ctypes.CDLL(str(pathlib.Path(sys.argv[1]) / ('lib' + library + '.so')))
     print('加载成功：' + library)
 PY
-cp "$stage_dir/"*.so "$script_dir/src/main/resources/linux-x86-64/"
-echo "已更新 5 个 Linux x86-64 原生库；目标服务器的 C++/OpenMP 运行库及推理仍需验证。"
+mkdir -p "$script_dir/src/main/resources/$resource"
+cp "$stage_dir/"*.so "$script_dir/src/main/resources/$resource/"
+echo "已更新 5 个 $resource 原生库；目标服务器的 C++/OpenMP 运行库及推理仍需验证。"

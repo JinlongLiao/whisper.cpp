@@ -9,6 +9,7 @@ import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.Objects;
 
+import com.sun.jna.Platform;
 import io.github.ggerganov.whispercpp.WhisperCppJnaLibrary;
 
 /**
@@ -29,6 +30,7 @@ public final class LocalLib {
     /**
      * 首次调用删除并重新释放本平台原生库，后续调用复用已释放的文件。
      * 同步初始化保证并发调用不会在其他线程加载库时再次覆盖文件。
+     * 资源路径按 JVM 架构选择，macOS ARM64 沿用已有的 darwin 路径。
      *
      * @param init 库选择编号：0 base、1 cpu、2 ggml、3 blas、4 metal、5 parakeet，其他值为 whisper
      * @return 原生库绝对路径；平台不支持的可选库返回 null
@@ -58,7 +60,7 @@ public final class LocalLib {
             ggmlCpu = new File(dirFolder, "ggml-cpu.dll");
             whisper = new File(dirFolder, "whisper.dll");
             parakeet = new File(dirFolder, "parakeet.dll");
-            path = "/win32-x86-64";
+            path = "/win32-" + Platform.ARCH;
         } else if (isMac) {
             ggml = new File(dirFolder, "libggml.dylib");
             ggmlBase = new File(dirFolder, "libggml-base.dylib");
@@ -67,14 +69,14 @@ public final class LocalLib {
             blas = new File(dirFolder, "libggml-blas.dylib");
             metal = new File(dirFolder, "libggml-metal.dylib");
             parakeet = new File(dirFolder, "libparakeet.dylib");
-            path = "/darwin";
+            path = "aarch64".equals(Platform.ARCH) ? "/darwin" : "/darwin-" + Platform.ARCH;
         } else {
             ggml = new File(dirFolder, "libggml.so");
             ggmlBase = new File(dirFolder, "libggml-base.so");
             ggmlCpu = new File(dirFolder, "libggml-cpu.so");
             whisper = new File(dirFolder, "libwhisper.so");
             parakeet = new File(dirFolder, "libparakeet.so");
-            path = "/linux-x86-64";
+            path = "/linux-" + Platform.ARCH;
             isLinux = true;
         }
         if (!nativeLibrariesInitialized) {

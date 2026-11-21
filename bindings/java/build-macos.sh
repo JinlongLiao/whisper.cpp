@@ -1,6 +1,6 @@
 #!/bin/bash
-# 构建 Java JAR 使用的 Apple Silicon 动态库；失败时不复制未完成的资源。
-# 用法：bash bindings/java/build-macos.sh [独立的 CMake 构建目录]
+# 构建 Java JAR 使用的 macOS 动态库；失败时不复制未完成的资源。
+# 用法：bash bindings/java/build-macos.sh [独立的 CMake 构建目录] [arm64|x86_64]
 set -euo pipefail
 
 if [[ "$(uname -s)" != Darwin ]]; then
@@ -11,13 +11,18 @@ fi
 script_dir="$(cd "$(dirname "$0")" && pwd)"
 repo_dir="$(cd "$script_dir/../.." && pwd)"
 build_dir="${1:-$repo_dir/build-java-macos}"
+architecture="${2:-arm64}"
+case "$architecture" in
+    arm64) resource=darwin ;;
+    x86_64) resource=darwin-x86-64 ;;
+    *) echo "不支持的 macOS 架构：$architecture" >&2; exit 1 ;;
+esac
 libraries=(ggml-base ggml-cpu ggml-blas ggml-metal ggml parakeet whisper)
 
 # 不复用日常 build 的宿主机默认目标；Metal 源码嵌入库中，避免依赖构建目录的资源。
-# darwin 资源当前只支持 arm64，不在同一路径写入 Intel 或宿主机专用指令集制品。
 cmake -S "$repo_dir" -B "$build_dir" \
     -DCMAKE_BUILD_TYPE=Release \
-    -DCMAKE_OSX_ARCHITECTURES=arm64 \
+    -DCMAKE_OSX_ARCHITECTURES="$architecture" \
     -DCMAKE_OSX_DEPLOYMENT_TARGET=15.0 \
     -DBUILD_SHARED_LIBS=ON \
     -DGGML_NATIVE=OFF \
@@ -38,8 +43,8 @@ done
 
 for library in "${libraries[@]}"; do
     dylib="$stage_dir/lib${library}.dylib"
-    if [[ "$(lipo -archs "$dylib")" != arm64 ]]; then
-        echo "架构不符合 arm64 资源约定：$dylib" >&2
+    if [[ "$(lipo -archs "$dylib")" != "$architecture" ]]; then
+        echo "架构不符合 $architecture 资源约定：$dylib" >&2
         exit 1
     fi
     if [[ "$(vtool -show-build "$dylib" | awk '$1 == "minos" {print $2}')" != 15.0 ]]; then
@@ -88,5 +93,6 @@ for library in ("ggml-base", "ggml-cpu", "ggml-blas", "ggml-metal", "ggml", "par
     ctypes.CDLL(str(pathlib.Path(sys.argv[1]) / ("lib" + library + ".dylib")))
     print("加载成功：" + library)
 PY
-cp "$stage_dir/"*.dylib "$script_dir/src/main/resources/darwin/"
-echo "已更新 7 个 macOS arm64 原生库（最低 macOS 15.0）；可继续构建 Java JAR。"
+mkdir -p "$script_dir/src/main/resources/$resource"
+cp "$stage_dir/"*.dylib "$script_dir/src/main/resources/$resource/"
+echo "已更新 7 个 macOS $architecture 原生库（最低 macOS 15.0）；可继续构建 Java JAR。"

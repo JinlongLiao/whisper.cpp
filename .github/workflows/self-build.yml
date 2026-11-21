@@ -18,12 +18,31 @@ jobs:
           - platform: macos-arm64
             runner: macos-15
             resource: darwin
+            arch: arm64
+          - platform: macos-x64
+            runner: macos-15-intel
+            resource: darwin-x86-64
+            arch: x86_64
           - platform: windows-x64
             runner: windows-2022
             resource: win32-x86-64
+            arch: x64
+            vs-arch: amd64
+            vs-component: Microsoft.VisualStudio.Component.VC.Tools.x86.x64
+            vs-generator: Visual Studio 17 2022
+          - platform: windows-arm64
+            runner: windows-11-vs2026-arm64
+            resource: win32-aarch64
+            arch: ARM64
+            vs-arch: arm64
+            vs-component: Microsoft.VisualStudio.Component.VC.Tools.ARM64
+            vs-generator: Visual Studio 18 2026
           - platform: linux-x64
             runner: ubuntu-24.04
             resource: linux-x86-64
+          - platform: linux-arm64
+            runner: ubuntu-24.04-arm
+            resource: linux-aarch64
 
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
@@ -32,7 +51,7 @@ jobs:
 
       - uses: actions/setup-java@v5
         with:
-          distribution: temurin
+          distribution: ${{ matrix.platform == 'windows-arm64' && 'microsoft' || 'temurin' }}
           java-version: '17'
           cache: maven
           cache-dependency-path: bindings/java/pom.xml
@@ -40,13 +59,15 @@ jobs:
       - name: Build macOS native libraries and CLI
         if: runner.os == 'macOS'
         shell: bash
+        env:
+          TARGET_ARCH: ${{ matrix.arch }}
         run: |
           log="$RUNNER_TEMP/native-build.log"
           trap 'printf "::error::%s\n" "$(tail -n 24 "$log" | awk '\''{gsub(/%/, "%25"); gsub(/\r/, "%0D"); printf "%s%%0A", $0}'\'')"' ERR
           {
-          bash bindings/java/build-macos.sh "$RUNNER_TEMP/whisper-native"
+          bash bindings/java/build-macos.sh "$RUNNER_TEMP/whisper-native" "$TARGET_ARCH"
           cmake -S . -B "$RUNNER_TEMP/whisper-cli" -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_OSX_DEPLOYMENT_TARGET=15.0 \
+            -DCMAKE_OSX_ARCHITECTURES="$TARGET_ARCH" -DCMAKE_OSX_DEPLOYMENT_TARGET=15.0 \
             -DBUILD_SHARED_LIBS=OFF -DGGML_NATIVE=OFF -DGGML_METAL_EMBED_LIBRARY=ON \
             -DWHISPER_BUILD_TESTS=OFF -DWHISPER_BUILD_EXAMPLES=ON
           cmake --build "$RUNNER_TEMP/whisper-cli" --parallel 3 --target whisper-cli
@@ -59,14 +80,19 @@ jobs:
       - name: Build Windows native libraries and CLI
         if: runner.os == 'Windows'
         shell: pwsh
+        env:
+          TARGET_ARCH: ${{ matrix.arch }}
+          VS_ARCH: ${{ matrix.vs-arch }}
+          VS_COMPONENT: ${{ matrix.vs-component }}
+          VS_GENERATOR: ${{ matrix.vs-generator }}
         run: |
           $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
-          $vs = & $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          $vs = & $vswhere -latest -products '*' -requires $env:VS_COMPONENT -property installationPath
           if (-not $vs) { throw "Visual Studio C++ toolchain not found" }
-          & "$vs\Common7\Tools\Launch-VsDevShell.ps1" -Arch amd64 -HostArch amd64 -SkipAutomaticLocation
-          & ./bindings/java/build-windows.ps1 -BuildDirectory "$env:RUNNER_TEMP/whisper-native"
+          & "$vs\Common7\Tools\Launch-VsDevShell.ps1" -Arch $env:VS_ARCH -HostArch $env:VS_ARCH -SkipAutomaticLocation
+          & ./bindings/java/build-windows.ps1 -BuildDirectory "$env:RUNNER_TEMP/whisper-native" -Architecture $env:TARGET_ARCH -Generator $env:VS_GENERATOR
           $build = "$env:RUNNER_TEMP/whisper-cli"
-          cmake -S . -B $build -G "Visual Studio 17 2022" -A x64 `
+          cmake -S . -B $build -G $env:VS_GENERATOR -A $env:TARGET_ARCH `
             -DBUILD_SHARED_LIBS=OFF -DGGML_NATIVE=OFF -DGGML_OPENMP=OFF `
             -DWHISPER_BUILD_TESTS=OFF -DWHISPER_BUILD_EXAMPLES=ON
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -111,12 +137,12 @@ jobs:
         run: |
           # 每个 JAR 只包含当前 runner 重新编译的原生资源。
           resources=bindings/java/src/main/resources
-          for platform in darwin win32-x86-64 linux-x86-64; do
-            if [[ "$platform" != "$NATIVE_RESOURCE" ]]; then
-              rm -r -- "$resources/$platform"
+          for directory in "$resources"/darwin* "$resources"/win32-* "$resources"/linux-*; do
+            if [[ -d "$directory" && "${directory##*/}" != "$NATIVE_RESOURCE" ]]; then
+              rm -r -- "$directory"
             fi
           done
-          mvn -B -f bindings/java/pom.xml -Dmaven.test.skip=true clean package
+          mvn -B -f bindings/java/pom.xml -Dtest=WhisperJnaLibraryTest clean package
           for archive in bindings/java/target/whispercpp-*.jar; do
             case "$archive" in
               *-sources.jar|*-javadoc.jar) continue ;;
