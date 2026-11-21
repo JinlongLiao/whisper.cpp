@@ -47,8 +47,7 @@ for library in "${libraries[@]}"; do
         exit 1
     fi
 
-    # 修改会使已有签名失效；完成所有 Mach-O 修改后重新进行 ad-hoc 签名。
-    codesign --remove-signature "$dylib"
+    # 保留签名区以兼容旧版 install_name_tool，修改完成后强制重新签名。
     install_name_tool -id "@loader_path/lib${library}.dylib" "$dylib"
     while IFS= read -r dependency; do
         name="${dependency##*/}"

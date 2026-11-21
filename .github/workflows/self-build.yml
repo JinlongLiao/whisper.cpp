@@ -90,7 +90,7 @@ jobs:
           export DEBIAN_FRONTEND=noninteractive
           apt-get update
           apt-get install -y --no-install-recommends build-essential ca-certificates git patchelf python3-pip
-          python3 -m pip install --no-cache-dir cmake==3.31.8
+          python3 -m pip install --no-cache-dir cmake==3.31.10
           git config --global --add safe.directory /workspace
           CMAKE_BUILD_PARALLEL_LEVEL=4 bash bindings/java/build-linux.sh /tmp/whisper-native
           cmake -S . -B /tmp/whisper-cli -DCMAKE_BUILD_TYPE=Release \
