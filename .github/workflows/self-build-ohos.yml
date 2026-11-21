@@ -1,0 +1,79 @@
+name: Build Whisper for OpenHarmony
+
+on:
+  push:
+    branches: [self]
+    paths:
+      - '.github/workflows/self-build-ohos.yml'
+      - 'CMakeLists.txt'
+      - 'cmake/**'
+      - 'examples/**'
+      - 'ggml/**'
+      - 'include/**'
+      - 'src/**'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: openharmony-arm64
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+
+      - uses: actions/cache@v5
+        id: sdk
+        with:
+          path: ${{ runner.temp }}/ohos-sdk/native
+          key: openharmony-native-6.0.0.47-linux-x64
+
+      - name: Install OpenHarmony 6.0 Native SDK
+        if: steps.sdk.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          # 只保留官方归档中的 Linux Native SDK，并核对整个归档的 SHA-256。
+          sdk="$RUNNER_TEMP/ohos-sdk"
+          mkdir -p "$sdk"
+          cd "$sdk"
+          trap 'rm -f sdk.tar.gz native.zip' EXIT
+          curl --fail --location --retry 3 --max-time 900 \
+            https://repo.huaweicloud.com/openharmony/os/6.0-Release/ohos-sdk-windows_linux-public.tar.gz \
+            --output sdk.tar.gz
+          echo 'a315834ac133625efc912bd078f3e2b2550868d04aef1b5aa4f9679c8b3c9d8e  sdk.tar.gz' | sha256sum --check
+          tar -xOzf sdk.tar.gz linux/native-linux-x64-6.0.0.47-Beta1.zip > native.zip
+          unzip -q native.zip
+
+      - name: Cross-compile OpenHarmony ARM64 CLI and libraries
+        shell: bash
+        run: |
+          native="$RUNNER_TEMP/ohos-sdk/native"
+          build="$RUNNER_TEMP/whisper-ohos"
+          cmake -S . -B "$build" -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_TOOLCHAIN_FILE="$native/build/cmake/ohos.toolchain.cmake" \
+            -DOHOS_ARCH=arm64-v8a -DOHOS_PLATFORM=OHOS -DOHOS_STL=c++_static \
+            -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DBUILD_SHARED_LIBS=OFF \
+            -DGGML_NATIVE=OFF -DGGML_OPENMP=OFF -DGGML_BACKEND_DL=OFF \
+            -DWHISPER_BUILD_TESTS=OFF -DWHISPER_BUILD_EXAMPLES=ON -DWHISPER_BUILD_SERVER=OFF
+          cmake --build "$build" --parallel 4 --target whisper-cli parakeet
+
+          mkdir -p stage/bin stage/lib stage/include dist
+          cp "$build/bin/whisper-cli" stage/bin/
+          LC_ALL=C readelf -h stage/bin/whisper-cli | grep -E 'Machine: +AArch64$'
+          LC_ALL=C readelf -l stage/bin/whisper-cli | grep -F 'ld-musl-aarch64.so.1'
+          for library in whisper parakeet ggml ggml-base ggml-cpu; do
+            archive=$(find "$build" -name "lib$library.a" -type f -print -quit)
+            cp "$archive" stage/lib/
+          done
+          cp include/*.h ggml/include/*.h stage/include/
+          cp LICENSE stage/
+          tar -czf dist/whisper-openharmony-arm64.tar.gz -C stage .
+
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: whisper-openharmony-arm64
+          path: dist/
+          if-no-files-found: error
