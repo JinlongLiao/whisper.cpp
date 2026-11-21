@@ -4,11 +4,12 @@ if (WHISPER_SDL2)
 
     if (WHISPER_USE_SYSTEM_LLAMA)
         message(STATUS "Using system-provided llama.cpp, skipping llama.cpp fetch")
-        find_package(llama 0.6.0 REQUIRED)
+        find_package(llama 1.0.0 REQUIRED)
     else()
         include(FetchContent)
 
-        set(LLAMA_TAG "v0.6.0")
+        # a956a852: fix ctz64 on Win32 (missing _WIN64 guard), not yet in a release tag
+        set(LLAMA_TAG "a956a852c9c8bc1fb07206364838ddef299178c0")
 
         set(LLAMA_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
         set(LLAMA_BUILD_TESTS    OFF CACHE BOOL "" FORCE)

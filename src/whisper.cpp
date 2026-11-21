@@ -1,5 +1,6 @@
 #include "whisper.h"
 #include "whisper-arch.h"
+#include "whisper-logging.h"
 
 #include "ggml.h"
 #include "ggml-cpp.h"
@@ -106,36 +107,11 @@ static void byteswap_tensor(ggml_tensor * tensor) {
 #define BYTESWAP_TENSOR(t) do {} while (0)
 #endif
 
-#ifdef __GNUC__
-#ifdef __MINGW32__
-#define WHISPER_ATTRIBUTE_FORMAT(...) __attribute__((format(gnu_printf, __VA_ARGS__)))
-#else
-#define WHISPER_ATTRIBUTE_FORMAT(...) __attribute__((format(printf, __VA_ARGS__)))
-#endif
-#else
-#define WHISPER_ATTRIBUTE_FORMAT(...)
-#endif
-
 //
 // logging
 //
 
-WHISPER_ATTRIBUTE_FORMAT(2, 3)
-static void whisper_log_internal        (ggml_log_level level, const char * format, ...);
 static void whisper_log_callback_default(ggml_log_level level, const char * text, void * user_data);
-
-#define WHISPER_LOG_ERROR(...) whisper_log_internal(GGML_LOG_LEVEL_ERROR, __VA_ARGS__)
-#define WHISPER_LOG_WARN(...)  whisper_log_internal(GGML_LOG_LEVEL_WARN , __VA_ARGS__)
-#define WHISPER_LOG_INFO(...)  whisper_log_internal(GGML_LOG_LEVEL_INFO , __VA_ARGS__)
-
-// define this to enable verbose trace logging - useful for debugging purposes
-//#define WHISPER_DEBUG
-
-#if defined(WHISPER_DEBUG)
-#define WHISPER_LOG_DEBUG(...) whisper_log_internal(GGML_LOG_LEVEL_DEBUG, __VA_ARGS__)
-#else
-#define WHISPER_LOG_DEBUG(...)
-#endif
 
 #define WHISPER_ASSERT(x) \
     do { \
@@ -476,17 +452,17 @@ struct whisper_segment {
 };
 
 struct whisper_batch {
-    int32_t n_tokens;
+    int32_t n_tokens = 0;
 
-    whisper_token  *  token;
-    whisper_pos    *  pos;
-    int32_t        *  n_seq_id; // always 1, here for consistency with llama.cpp
-    whisper_seq_id ** seq_id;   // null terminated
-    int8_t         *  logits;
+    whisper_token  *  token    = nullptr;
+    whisper_pos    *  pos      = nullptr;
+    int32_t        *  n_seq_id = nullptr; // always 1, here for consistency with llama.cpp
+    whisper_seq_id ** seq_id   = nullptr;   // null terminated
+    int8_t         *  logits   = nullptr;
 };
 
 static struct whisper_batch whisper_batch_init(int32_t n_tokens, int32_t n_seq_max) {
-    whisper_batch batch = { 0, nullptr, nullptr, nullptr, nullptr, nullptr, };
+    whisper_batch batch;
 
     batch.token    = (whisper_token *  ) malloc(sizeof(whisper_token)    * (n_tokens));
     batch.pos      = (whisper_pos *)     malloc(sizeof(whisper_pos)      * (n_tokens));
@@ -1370,6 +1346,27 @@ static std::vector<ggml_backend_t> whisper_backend_init(const whisper_context_pa
     return result;
 }
 
+static bool whisper_backend_supports_buffers(const std::vector<ggml_backend_t> & backends, const std::vector<ggml_backend_buffer_t> & buffers) {
+    for (ggml_backend_buffer_t buffer : buffers) {
+        ggml_backend_buffer_type_t buft = ggml_backend_buffer_get_type(buffer);
+
+        bool supported = false;
+        for (ggml_backend_t backend : backends) {
+            if (ggml_backend_supports_buft(backend, buft)) {
+                supported = true;
+                break;
+            }
+        }
+
+        if (!supported) {
+            WHISPER_LOG_ERROR("%s: no backend can use the weights in buffer type %s\n", __func__, ggml_backend_buft_name(buft));
+            return false;
+        }
+    }
+
+    return true;
+}
+
 using buft_list_t = std::vector<std::pair<ggml_backend_dev_t, ggml_backend_buffer_type_t>>;
 
 static buft_list_t make_buft_list(whisper_context_params & params) {
@@ -2100,8 +2097,6 @@ static struct ggml_cgraph * whisper_build_graph_encoder(
 
     WHISPER_ASSERT(!!kv_pad.buffer);
 
-    const int n_ctx_pad = GGML_PAD(n_ctx, 256);
-
     struct ggml_init_params params = {
         /*.mem_size   =*/ wstate.sched_encode.meta.size(),
         /*.mem_buffer =*/ wstate.sched_encode.meta.data(),
@@ -2192,14 +2187,14 @@ static struct ggml_cgraph * whisper_build_graph_encoder(
 
                 struct ggml_tensor * K =
                     ggml_view_3d(ctx0, kv_pad.k,
-                            n_state_head, n_ctx_pad, n_head,
+                            n_state_head, n_ctx, n_head,
                             ggml_element_size(kv_pad.k)*n_state,
                             ggml_element_size(kv_pad.k)*n_state_head,
                             0);
 
                 struct ggml_tensor * V =
                     ggml_view_3d(ctx0, kv_pad.v,
-                            n_state_head, n_ctx_pad, n_head,
+                            n_state_head, n_ctx, n_head,
                             ggml_element_size(kv_pad.v)*n_state,
                             ggml_element_size(kv_pad.v)*n_state_head,
                             0);
@@ -2749,14 +2744,14 @@ static struct ggml_cgraph * whisper_build_graph_decoder(
             if (wctx.params.flash_attn) {
                 struct ggml_tensor * Kcross =
                     ggml_view_3d(ctx0, wstate.kv_cross.k,
-                            n_state_head, n_audio_ctx_pad, n_head,
+                            n_state_head, n_audio_ctx, n_head,
                             ggml_element_size(wstate.kv_cross.k)*n_state,
                             ggml_element_size(wstate.kv_cross.k)*n_state_head,
                             ggml_element_size(wstate.kv_cross.k)*n_state*n_audio_ctx_pad*il);
 
                 struct ggml_tensor * Vcross =
                     ggml_view_3d(ctx0, wstate.kv_cross.v,
-                            n_state_head, n_audio_ctx_pad, n_head,
+                            n_state_head, n_audio_ctx, n_head,
                             ggml_element_size(wstate.kv_cross.v)*n_state,
                             ggml_element_size(wstate.kv_cross.v)*n_state_head,
                             ggml_element_size(wstate.kv_cross.v)*n_state*n_audio_ctx_pad*il);
@@ -3467,6 +3462,11 @@ struct whisper_state * whisper_init_state(whisper_context * ctx) {
         return nullptr;
     }
 
+    if (!whisper_backend_supports_buffers(state->backends, ctx->model.buffers)) {
+        whisper_free_state(state);
+        return nullptr;
+    }
+
     // at this point, we don't know yet how many decoders will be used
     // later during decoding, if more decoders are used, we will recreate the KV cache respectively
     state->kv_self_n_dec = 1;
@@ -3520,7 +3520,7 @@ struct whisper_state * whisper_init_state(whisper_context * ctx) {
             return nullptr;
         }
         const size_t memory_size = aheads_masks_nbytes(state->aheads_masks);
-        WHISPER_LOG_INFO("%s: alignment heads masks size = %ld B\n", __func__, memory_size);
+        WHISPER_LOG_INFO("%s: alignment heads masks size = %zu B\n", __func__, memory_size);
     }
 
 #ifdef WHISPER_USE_COREML
@@ -6814,6 +6814,12 @@ static void whisper_sequence_score(
     }
 }
 
+static void whisper_state_clear_vad(struct whisper_state * state) {
+    state->vad_segments.clear();
+    state->vad_mapping_table.clear();
+    state->has_vad_segments = false;
+}
+
 static bool whisper_vad(
         struct whisper_context * ctx,
           struct whisper_state * state,
@@ -6824,9 +6830,8 @@ static bool whisper_vad(
     WHISPER_LOG_INFO("%s: VAD is enabled, processing speech segments only\n", __func__);
     int filtered_n_samples = 0;
 
-    // Clear any existing mapping table
-    state->vad_mapping_table.clear();
-    state->has_vad_segments = false;
+    // Clear any existing VAD state
+    whisper_state_clear_vad(state);
 
     if (state->vad_context == nullptr) {
         struct whisper_vad_context_params vad_ctx_params = whisper_vad_default_context_params();
@@ -7029,8 +7034,10 @@ int whisper_full_with_state(
         }
     }
 
+    const int n_len = whisper_n_len_from_state(state);
     const int seek_start = params.offset_ms/10;
-    const int seek_end = params.duration_ms == 0 ? whisper_n_len_from_state(state) : seek_start + params.duration_ms/10;
+    const int seek_end = params.duration_ms == 0 ? n_len : std::min(seek_start + params.duration_ms/10, n_len);
+    const int audio_len = n_samples > 0 ? (int) ((100LL * n_samples) / WHISPER_SAMPLE_RATE) : n_len;
 
     // if length of spectrogram is less than 100ms (10 frames), then return
     // basically don't process anything that is less than 100ms
@@ -7823,7 +7830,7 @@ int whisper_full_with_state(
                     }
 
                     if (tokens_cur[i].id > whisper_token_beg(ctx) && !params.single_segment) {
-                        const auto t1 = seek + 2*(tokens_cur[i].tid - whisper_token_beg(ctx));
+                        const auto t1 = std::min(seek + 2*(tokens_cur[i].tid - whisper_token_beg(ctx)), audio_len);
 
                         if (!text.empty()) {
                             const auto tt0 = t0;
@@ -7874,7 +7881,7 @@ int whisper_full_with_state(
                 }
 
                 if (!text.empty()) {
-                    const auto t1 = seek + seek_delta;
+                    const auto t1 = std::min(seek + seek_delta, audio_len);
 
                     const auto tt0 = t0;
                     const auto tt1 = t1;
@@ -7968,6 +7975,8 @@ int whisper_full(
         }
         samples = vad_samples.data();
         n_samples = vad_samples.size();
+    } else {
+        whisper_state_clear_vad(ctx->state);
     }
     return whisper_full_with_state(ctx, ctx->state, params, samples, n_samples);
 }
@@ -7995,6 +8004,8 @@ int whisper_full_parallel(
         }
         samples = vad_samples.data();
         n_samples = vad_samples.size();
+    } else {
+        whisper_state_clear_vad(ctx->state);
     }
     int ret = 0;
 
@@ -9351,7 +9362,10 @@ const char * whisper_version(void) {
 }
 
 GGML_ATTRIBUTE_FORMAT(2, 3)
-static void whisper_log_internal(ggml_log_level level, const char * format, ...) {
+#if defined(__GNUC__) || defined(__clang__)
+__attribute__((visibility("hidden")))
+#endif
+void whisper_log_internal(ggml_log_level level, const char * format, ...) {
     va_list args;
     va_start(args, format);
     char buffer[1024];

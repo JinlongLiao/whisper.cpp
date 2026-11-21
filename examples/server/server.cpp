@@ -168,7 +168,7 @@ void whisper_print_usage(int /*argc*/, char ** argv, const whisper_params & para
     fprintf(stderr, "  -oved D,   --ov-e-device DNAME         [%-7s] the OpenVINO device used for encode inference\n",  params.openvino_encode_device.c_str());
     // server params
     fprintf(stderr, "  -dtw MODEL --dtw MODEL                 [%-7s] compute token-level timestamps\n",                          params.dtw.c_str());
-    fprintf(stderr, "  --host HOST,                           [%-7s] Hostname/ip-adress for the server\n",                       sparams.hostname.c_str());
+    fprintf(stderr, "  --host HOST,                           [%-7s] Hostname/ip-adress for the server, or a unix socket path ending in .sock\n", sparams.hostname.c_str());
     fprintf(stderr, "  --port PORT,                           [%-7d] Port number for the server\n",                              sparams.port);
     fprintf(stderr, "  --public PATH,                         [%-7s] Path to the public folder\n",                               sparams.public_path.c_str());
     fprintf(stderr, "  --request-path PATH,                   [%-7s] Request path for all requests\n",                           sparams.request_path.c_str());
@@ -449,6 +449,11 @@ void whisper_print_segment_callback(struct whisper_context * ctx, struct whisper
         }
         fflush(stdout);
     }
+}
+
+static const char * whisper_lang_str_or_unknown(int lang_id) {
+    const char * language = whisper_lang_str_full(lang_id);
+    return language != nullptr ? language : "unknown";
 }
 
 std::string output_str(struct whisper_context * ctx, const whisper_params & params, const std::vector<std::vector<float>> & pcmf32s) {
@@ -1065,9 +1070,10 @@ int main(int argc, char ** argv) {
         } else if (params.response_format == vjson_format) {
             /* try to match openai/whisper's Python format */
             std::string results = output_str(ctx, params, pcmf32s);
+            const char * language = whisper_lang_str_or_unknown(whisper_full_lang_id(ctx));
             json jres = json{
                 {"task", params.translate ? "translate" : "transcribe"},
-                {"language", whisper_lang_str_full(whisper_full_lang_id(ctx))},
+                {"language", language},
                 {"duration", float(pcmf32.size())/WHISPER_SAMPLE_RATE},
                 {"text", results},
                 {"segments", json::array()}
@@ -1076,8 +1082,13 @@ int main(int argc, char ** argv) {
             if (!params.no_language_probabilities) {
                 std::vector<float> lang_probs(whisper_lang_max_id() + 1, 0.0f);
                 const auto detected_lang_id = whisper_lang_auto_detect(ctx, 0, params.n_threads, lang_probs.data());
-                jres["detected_language"] = whisper_lang_str_full(detected_lang_id);
-                jres["detected_language_probability"] = lang_probs[detected_lang_id];
+                if (detected_lang_id < 0 || detected_lang_id > whisper_lang_max_id()) {
+                    jres["detected_language"]             = "unknown";
+                    jres["detected_language_probability"] = 0.0f;
+                } else {
+                    jres["detected_language"]             = whisper_lang_str_full(detected_lang_id);
+                    jres["detected_language_probability"] = lang_probs[detected_lang_id];
+                }
                 jres["language_probabilities"] = json::object();
                 // Add all language probabilities
                 for (int i = 0; i <= whisper_lang_max_id(); ++i) {
@@ -1166,7 +1177,7 @@ int main(int argc, char ** argv) {
                 {"text", results}
             };
             if (params.detect_language) {
-                jres["language"] = whisper_lang_str_full(whisper_full_lang_id(ctx));
+                jres["language"] = whisper_lang_str_or_unknown(whisper_full_lang_id(ctx));
             }
             res.set_content(jres.dump(-1, ' ', false, json::error_handler_t::replace),
                             "application/json");
@@ -1253,10 +1264,27 @@ int main(int argc, char ** argv) {
     svr->set_read_timeout(sparams.read_timeout);
     svr->set_write_timeout(sparams.write_timeout);
 
-    if (!svr->bind_to_port(sparams.hostname, sparams.port))
-    {
-        fprintf(stderr, "\ncouldn't bind to server socket: hostname=%s port=%d\n\n",
-                sparams.hostname.c_str(), sparams.port);
+    // a host ending in ".sock" is the path of a unix domain socket
+    constexpr std::string_view sock_ext = ".sock";
+    const bool is_sock = sparams.hostname.size() >= sock_ext.size() &&
+        sparams.hostname.compare(sparams.hostname.size() - sock_ext.size(), sock_ext.size(), sock_ext) == 0;
+
+    bool was_bound = false;
+    if (is_sock) {
+        svr->set_address_family(AF_UNIX);
+        // AF_UNIX ignores the port, but bind_to_port requires a nonzero value
+        was_bound = svr->bind_to_port(sparams.hostname, 8080);
+    } else {
+        was_bound = svr->bind_to_port(sparams.hostname, sparams.port);
+    }
+
+    if (!was_bound) {
+        if (is_sock) {
+            fprintf(stderr, "\ncouldn't bind to unix socket: %s\n\n", sparams.hostname.c_str());
+        } else {
+            fprintf(stderr, "\ncouldn't bind to server socket: hostname=%s port=%d\n\n",
+                    sparams.hostname.c_str(), sparams.port);
+        }
         return 1;
     }
 
@@ -1264,7 +1292,11 @@ int main(int argc, char ** argv) {
     svr->set_base_dir(sparams.public_path);
 
     // to make it ctrl+clickable:
-    printf("\nwhisper server listening at http://%s:%d\n\n", sparams.hostname.c_str(), sparams.port);
+    if (is_sock) {
+        printf("\nwhisper server listening at unix://%s\n\n", sparams.hostname.c_str());
+    } else {
+        printf("\nwhisper server listening at http://%s:%d\n\n", sparams.hostname.c_str(), sparams.port);
+    }
 
     shutdown_handler = [&](int signal) {
         printf("\nCaught signal %d, shutting down gracefully...\n", signal);

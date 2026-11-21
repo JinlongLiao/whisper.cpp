@@ -5,7 +5,7 @@ include(CheckIncludeFileCXX)
 ### whisper.cpp version
 set(WHISPER_VERSION_MAJOR 1)
 set(WHISPER_VERSION_MINOR 9)
-set(WHISPER_VERSION_PATCH 5)
+set(WHISPER_VERSION_PATCH 6)
 set(WHISPER_VERSION_BASE "${WHISPER_VERSION_MAJOR}.${WHISPER_VERSION_MINOR}.${WHISPER_VERSION_PATCH}")
 
 # whether this is a development/nightly build
@@ -128,12 +128,13 @@ set(GGML_ALL_WARNINGS       ${WHISPER_ALL_WARNINGS})
 set(GGML_FATAL_WARNINGS     ${WHISPER_FATAL_WARNINGS})
 
 # transition helpers
-function (whisper_option_depr TYPE OLD NEW)
-    if (${OLD})
+macro (whisper_option_depr TYPE OLD NEW)
+    if (DEFINED ${OLD})
         message(${TYPE} "${OLD} is deprecated and will be removed in the future.\nUse ${NEW} instead\n")
-        set(${NEW} ON)
+        set(${NEW} ${${OLD}} CACHE BOOL "" FORCE)
+        unset(${OLD} CACHE)
     endif()
-endfunction()
+endmacro()
 
 whisper_option_depr(FATAL_ERROR WHISPER_CUBLAS              GGML_CUDA)
 whisper_option_depr(WARNING     WHISPER_CUDA                GGML_CUDA)
