@@ -21,13 +21,16 @@ $Libraries = @("ggml-base", "ggml-cpu", "ggml", "parakeet", "whisper")
 $Resource = "win32-x86-64"
 $Machine = "8664"
 $OpenMP = "ON"
+$Toolset = @()
 if ($Architecture -eq "ARM64") {
     $Resource = "win32-aarch64"
     $Machine = "AA64"
     $OpenMP = "OFF"
+    # ggml 需要 Clang 生成不绑定构建机 CPU 特性的 Windows ARM64 库。
+    $Toolset = @("-T", "ClangCL")
 }
 # 保留 x64 的 OpenMP 配置，ARM64 使用 MSVC 基础运行库。
-& cmake -S $RepositoryDirectory -B $BuildDirectory -G $Generator -A $Architecture `
+& cmake -S $RepositoryDirectory -B $BuildDirectory -G $Generator -A $Architecture @Toolset `
     -DBUILD_SHARED_LIBS=ON -DGGML_NATIVE=OFF -DGGML_BACKEND_DL=OFF `
     -DGGML_CPU_ALL_VARIANTS=OFF -DGGML_BLAS=OFF -DGGML_CUDA=OFF -DGGML_VULKAN=OFF "-DGGML_OPENMP=$OpenMP" `
     -DWHISPER_BUILD_TESTS=OFF -DWHISPER_BUILD_EXAMPLES=OFF

@@ -95,7 +95,9 @@ jobs:
           & "$vs\Common7\Tools\Launch-VsDevShell.ps1" -Arch $env:VS_ARCH -HostArch $env:VS_ARCH -SkipAutomaticLocation
           & ./bindings/java/build-windows.ps1 -BuildDirectory "$env:RUNNER_TEMP/whisper-native" -Architecture $env:TARGET_ARCH -Generator $env:VS_GENERATOR
           $build = "$env:RUNNER_TEMP/whisper-cli"
-          cmake -S . -B $build -G $env:VS_GENERATOR -A $env:TARGET_ARCH `
+          $toolset = @()
+          if ($env:TARGET_ARCH -eq 'ARM64') { $toolset = @('-T', 'ClangCL') }
+          cmake -S . -B $build -G $env:VS_GENERATOR -A $env:TARGET_ARCH @toolset `
             -DBUILD_SHARED_LIBS=OFF -DGGML_NATIVE=OFF -DGGML_OPENMP=OFF `
             -DWHISPER_BUILD_TESTS=OFF -DWHISPER_BUILD_EXAMPLES=ON
           if ($LASTEXITCODE -ne 0) { throw "CLI CMake configuration failed ($LASTEXITCODE)" }
