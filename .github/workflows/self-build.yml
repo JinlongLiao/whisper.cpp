@@ -86,6 +86,9 @@ jobs:
           VS_COMPONENT: ${{ matrix.vs-component }}
           VS_GENERATOR: ${{ matrix.vs-generator }}
         run: |
+          $log = "$env:RUNNER_TEMP/windows-build.log"
+          try {
+          & {
           $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
           $vs = & $vswhere -latest -products '*' -requires $env:VS_COMPONENT -property installationPath
           if (-not $vs) { throw "Visual Studio C++ toolchain not found" }
@@ -95,14 +98,20 @@ jobs:
           cmake -S . -B $build -G $env:VS_GENERATOR -A $env:TARGET_ARCH `
             -DBUILD_SHARED_LIBS=OFF -DGGML_NATIVE=OFF -DGGML_OPENMP=OFF `
             -DWHISPER_BUILD_TESTS=OFF -DWHISPER_BUILD_EXAMPLES=ON
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if ($LASTEXITCODE -ne 0) { throw "CLI CMake configuration failed ($LASTEXITCODE)" }
           cmake --build $build --config Release --parallel 4 --target whisper-cli
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if ($LASTEXITCODE -ne 0) { throw "CLI compilation failed ($LASTEXITCODE)" }
           & "$build/bin/Release/whisper-cli.exe" --help
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if ($LASTEXITCODE -ne 0) { throw "CLI startup failed ($LASTEXITCODE)" }
           New-Item -ItemType Directory -Path dist -Force | Out-Null
           tar.exe -czf dist/whisper-cli.tar.gz -C "$build/bin/Release" whisper-cli.exe
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if ($LASTEXITCODE -ne 0) { throw "CLI archive creation failed ($LASTEXITCODE)" }
+          } *>&1 | Tee-Object -FilePath $log
+          } catch {
+            $details = (@(Get-Content -Path $log -Tail 20 -ErrorAction SilentlyContinue) + @($_ | Out-String)) -join "`n"
+            Write-Host "::error::$($details.Replace('%', '%25').Replace("`r", '%0D').Replace("`n", '%0A'))"
+            throw
+          }
 
       - name: Build Linux native libraries and CLI with GLIBC 2.31
         if: runner.os == 'Linux'
