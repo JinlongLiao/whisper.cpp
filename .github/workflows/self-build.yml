@@ -41,6 +41,9 @@ jobs:
         if: runner.os == 'macOS'
         shell: bash
         run: |
+          log="$RUNNER_TEMP/native-build.log"
+          trap 'printf "::error::%s\n" "$(tail -n 24 "$log" | awk '\''{gsub(/%/, "%25"); gsub(/\r/, "%0D"); printf "%s%%0A", $0}'\'')"' ERR
+          {
           bash bindings/java/build-macos.sh "$RUNNER_TEMP/whisper-native"
           cmake -S . -B "$RUNNER_TEMP/whisper-cli" -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_OSX_DEPLOYMENT_TARGET=15.0 \
@@ -51,6 +54,7 @@ jobs:
           cli="$RUNNER_TEMP/whisper-cli/bin/whisper-cli"
           "$cli" --help
           tar -czf dist/whisper-cli.tar.gz -C "$(dirname "$cli")" whisper-cli
+          } 2>&1 | tee "$log"
 
       - name: Build Windows native libraries and CLI
         if: runner.os == 'Windows'
@@ -78,6 +82,9 @@ jobs:
         if: runner.os == 'Linux'
         shell: bash
         run: |
+          log="$RUNNER_TEMP/native-build.log"
+          trap 'printf "::error::%s\n" "$(tail -n 24 "$log" | awk '\''{gsub(/%/, "%25"); gsub(/\r/, "%0D"); printf "%s%%0A", $0}'\'')"' ERR
+          {
           # 原生库和 CLI 使用相同的低版本 GLIBC，Maven 在宿主 runner 上运行。
           docker run --rm -i -v "$PWD:/workspace" -w /workspace ubuntu:20.04 bash -se <<'BUILD'
           export DEBIAN_FRONTEND=noninteractive
@@ -95,6 +102,7 @@ jobs:
           BUILD
           mkdir -p dist
           mv whisper-cli.tar.gz dist/
+          } 2>&1 | tee "$log"
 
       - name: Package and verify platform JAR
         shell: bash
